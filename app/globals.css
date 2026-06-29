@@ -1,0 +1,91 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-display: 'Fraunces';
+  --font-sans: 'Inter';
+  --font-mono: 'JetBrains Mono';
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  background: #061a18;
+  color: #eafaf6;
+  font-family: var(--font-sans), sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: #03100f; }
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(#1fb8a6, #13413c);
+  border-radius: 4px;
+}
+::selection { background: rgba(54,233,210,0.3); color: #eafaf6; }
+
+@layer components {
+  .glass {
+    @apply bg-surface/60 backdrop-blur-xl border border-border/80 rounded-2xl;
+  }
+  .glass-glow {
+    @apply glass shadow-glow;
+  }
+  .card-tilt {
+    @apply glass-glow transition-all duration-500;
+    transform-style: preserve-3d;
+  }
+  .btn-gold {
+    @apply relative px-6 py-3 rounded-full font-medium text-abyss bg-gradient-to-r from-gold to-goldGlow
+           shadow-glow-gold transition-all duration-300 hover:scale-[1.04] active:scale-95 overflow-hidden;
+  }
+  .btn-ghost {
+    @apply px-6 py-3 rounded-full font-medium text-text border border-border
+           hover:border-teal/60 hover:text-tealGlow transition-all duration-300;
+  }
+  .chip {
+    @apply inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono
+           bg-teal/10 text-tealGlow border border-teal/20;
+  }
+  .display {
+    font-family: var(--font-display), serif;
+    letter-spacing: -0.02em;
+  }
+  .text-gradient-teal {
+    @apply bg-gradient-to-r from-tealGlow via-teal to-tealGlow bg-clip-text text-transparent;
+  }
+  .text-gradient-gold {
+    @apply bg-gradient-to-r from-goldGlow via-gold to-goldGlow bg-clip-text text-transparent;
+  }
+  /* shimmering sweep used on buttons / headings */
+  .sheen::after {
+    content: "";
+    @apply absolute inset-0 bg-gold-sheen;
+    background-size: 200% 100%;
+    animation: shimmer 3.5s linear infinite;
+  }
+  .grid-bg {
+    @apply bg-grid-faint;
+    background-size: 44px 44px;
+  }
+  /* animated aurora background blob */
+  .aurora {
+    background: conic-gradient(from 180deg at 50% 50%,
+      rgba(31,184,166,0.0), rgba(54,233,210,0.25),
+      rgba(217,177,94,0.18), rgba(31,184,166,0.0));
+    filter: blur(60px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
