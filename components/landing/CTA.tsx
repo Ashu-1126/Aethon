@@ -27,9 +27,9 @@ function LiveCounter() {
 
 export function CTA() {
   return (
-    <section className="relative px-6 py-10 sm:py-16">
+    <section className="relative px-6 py-10 sm:py-16 overflow-hidden">
       <Reveal>
-        <div className="relative mx-auto w-full max-w-7xl overflow-hidden py-6 px-4 text-center sm:py-10 sm:px-8">
+        <div className="relative mx-auto w-full max-w-7xl overflow-hidden py-8 px-4 text-center sm:py-14 sm:px-8 border border-white/5 rounded-[2.5rem] shadow-[0_0_40px_rgba(54,233,210,0.03)]">
           <LiveCounter />
           
           {/* animated conic glow & data streams */}
@@ -46,6 +46,42 @@ export function CTA() {
           
           {/* Pulsing radar behind logo */}
           <div className="absolute left-1/2 top-1/2 -z-10 h-32 w-32 -translate-x-1/2 -translate-y-24 animate-pulse rounded-full bg-gold/10 blur-xl" />
+
+          {/* Ambient Floating Elements (Left) */}
+          <motion.div
+            animate={{ y: [0, -30, 0], opacity: [0.1, 0.4, 0.1] }}
+            transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
+            className="absolute left-8 top-1/4 hidden lg:flex flex-col gap-3 -z-10"
+          >
+            <div className="h-1 w-12 bg-tealGlow/40 rounded-full blur-[1px]" />
+            <div className="h-1 w-8 bg-tealGlow/30 rounded-full blur-[1px]" />
+            <div className="h-1 w-16 bg-tealGlow/20 rounded-full blur-[1px]" />
+          </motion.div>
+          <motion.div
+            animate={{ y: [0, 40, 0], opacity: [0.05, 0.2, 0.05] }}
+            transition={{ duration: 15, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+            className="absolute left-16 bottom-1/4 hidden lg:block -z-10"
+          >
+            <div className="h-24 w-24 rounded-full bg-teal/20 blur-2xl" />
+          </motion.div>
+
+          {/* Ambient Floating Elements (Right) */}
+          <motion.div
+            animate={{ y: [0, 30, 0], opacity: [0.1, 0.5, 0.1] }}
+            transition={{ duration: 14, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+            className="absolute right-12 top-1/3 hidden lg:flex flex-col items-end gap-2 -z-10"
+          >
+            <div className="h-1.5 w-1.5 bg-goldGlow/50 rounded-full blur-[1px]" />
+            <div className="h-1.5 w-1.5 bg-goldGlow/30 rounded-full blur-[1px]" />
+            <div className="h-1.5 w-1.5 bg-goldGlow/20 rounded-full blur-[1px]" />
+          </motion.div>
+          <motion.div
+            animate={{ y: [0, -20, 0], opacity: [0.05, 0.15, 0.05] }}
+            transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 3 }}
+            className="absolute right-24 bottom-1/3 hidden lg:block -z-10"
+          >
+            <div className="h-32 w-32 rounded-full bg-gold/10 blur-3xl" />
+          </motion.div>
 
           <div className="mb-6 flex justify-center">
             <EvolvingLogo className="h-44 w-44 sm:h-52 sm:w-52" finalOpacity={0.95} />
