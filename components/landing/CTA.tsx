@@ -22,7 +22,7 @@ export function CTA() {
           </span>
           <h2 className="display mx-auto max-w-2xl text-4xl font-semibold leading-tight md:text-5xl">
             The knowledge your plant{" "}
-            <span className="text-gradient-gold italic">can't afford to lose.</span>
+            <span className="text-gradient-gold italic">can&apos;t afford to lose.</span>
           </h2>
           <p className="mx-auto mt-5 max-w-xl text-muted">
             25% of senior engineers retire this decade — taking decades of operational
