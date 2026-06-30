@@ -10,6 +10,9 @@ import {
   Share2,
   UploadCloud,
   Target,
+  Wrench,
+  ShieldCheck,
+  Brain,
   Menu,
   X,
 } from "lucide-react";
@@ -17,11 +20,14 @@ import { health } from "@/lib/api";
 import { ApiError } from "@/lib/api";
 
 const nav = [
-  { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
-  { href: "/copilot", label: "Copilot", icon: MessageSquareText },
-  { href: "/knowledge-graph", label: "Knowledge Graph", icon: Share2 },
-  { href: "/upload", label: "Documents", icon: UploadCloud },
-  { href: "/scoreboard", label: "Scoreboard", icon: Target },
+  { href: "/dashboard",        label: "Overview",          icon: LayoutDashboard },
+  { href: "/copilot",           label: "Copilot",           icon: MessageSquareText },
+  { href: "/knowledge-graph",   label: "Knowledge Graph",   icon: Share2 },
+  { href: "/rca",               label: "Maintenance & RCA", icon: Wrench },
+  { href: "/compliance",        label: "Compliance",        icon: ShieldCheck },
+  { href: "/knowledge-cliff",   label: "Knowledge Cliff",   icon: Brain },
+  { href: "/upload",            label: "Documents",         icon: UploadCloud },
+  { href: "/scoreboard",        label: "Scoreboard",        icon: Target },
 ];
 
 /** Live backend status, polled from /health. */

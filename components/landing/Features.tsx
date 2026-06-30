@@ -6,6 +6,8 @@ import {
   Wrench,
   ShieldCheck,
   AlertTriangle,
+  Brain,
+  TrendingUp,
 } from "lucide-react";
 import { TiltCard } from "@/components/motion/TiltCard";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion/Reveal";
@@ -47,6 +49,18 @@ const features = [
     title: "Conflict Detector",
     body: "Finds contradictions across documents — a manual says 40 Nm, the SOP says 55 Nm — before they cause incidents.",
     tag: "Intelligence",
+  },
+  {
+    icon: Brain,
+    title: "Knowledge Cliff Capture",
+    body: "25% of senior engineers retire this decade. A 6-question interview saves 30 years of operational wisdom before it walks out the door.",
+    tag: "Preserve",
+  },
+  {
+    icon: TrendingUp,
+    title: "Failure Intelligence",
+    body: "Spots dangerous patterns across all past incidents — same machine, same procedure, same failure — and warns you before history repeats.",
+    tag: "Predict",
   },
 ];
 
