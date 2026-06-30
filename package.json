@@ -7,26 +7,28 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "postinstall": "git config pull.rebase true"
+    "postinstall": "git config pull.rebase true",
+    "prepare": "husky"
   },
   "dependencies": {
+    "clsx": "^2.1.1",
+    "framer-motion": "^11.3.8",
+    "lucide-react": "^0.400.0",
     "next": "14.2.5",
     "react": "^18",
     "react-dom": "^18",
-    "framer-motion": "^11.3.8",
-    "lucide-react": "^0.400.0",
-    "clsx": "^2.1.1",
     "tailwind-merge": "^2.4.0"
   },
   "devDependencies": {
-    "typescript": "^5",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
-    "tailwindcss": "^3.4.1",
     "autoprefixer": "^10.0.1",
-    "postcss": "^8",
     "eslint": "^8",
-    "eslint-config-next": "14.2.5"
+    "eslint-config-next": "14.2.5",
+    "husky": "^9.1.7",
+    "postcss": "^8",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5"
   }
 }
