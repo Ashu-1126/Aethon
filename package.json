@@ -6,9 +6,7 @@
     "dev": "next dev --port 3000",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "postinstall": "git config pull.rebase true",
-    "prepare": "husky"
+    "lint": "next lint"
   },
   "dependencies": {
     "clsx": "^2.1.1",
