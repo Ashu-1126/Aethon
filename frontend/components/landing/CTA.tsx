@@ -8,6 +8,10 @@ import EvolvingLogo from "@/components/landing/EvolvingLogo";
 import Link from "next/link";
 import { FloatingLines } from "@/components/motion/FloatingLines";
 
+// pin the locale so server and client format identically (avoids a hydration
+// mismatch: e.g. US "12,405,192" vs Indian "1,24,05,192")
+const nf = new Intl.NumberFormat("en-US");
+
 function LiveCounter() {
   const [count, setCount] = useState(12405192);
   useEffect(() => {
@@ -20,7 +24,7 @@ function LiveCounter() {
         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-tealGlow opacity-75"></span>
         <span className="relative inline-flex h-2 w-2 rounded-full bg-tealGlow"></span>
       </span>
-      Data Points Secured: {count.toLocaleString()}
+      Data Points Secured: {nf.format(count)}
     </div>
   );
 }

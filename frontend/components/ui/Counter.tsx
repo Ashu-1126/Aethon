@@ -41,7 +41,7 @@ export function Counter({
   return (
     <span ref={ref}>
       {prefix}
-      {val.toLocaleString(undefined, {
+      {val.toLocaleString("en-US", {
         minimumFractionDigits: dp,
         maximumFractionDigits: dp,
       })}

@@ -130,14 +130,14 @@ function CopilotHero() {
   return (
     <div className="relative w-full min-h-[70vh] flex flex-col justify-start overflow-hidden">
       {/* Main Content Container */}
-      <div className="relative z-10 mx-auto w-full max-w-7xl px-6 lg:px-12 flex flex-col md:flex-row items-start pt-16 pb-10">
+      <div className="relative z-10 mx-auto w-full max-w-7xl px-5 sm:px-6 lg:px-12 flex flex-col md:flex-row items-start pt-12 pb-10 sm:pt-16">
 
         {/* Left Side: Text and Input */}
         <motion.div
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, ease: [0.21, 0.5, 0.27, 0.99] }}
-          className="w-full md:w-[60%] flex flex-col items-start gap-6"
+          className="w-full md:w-[60%] flex flex-col items-start gap-4 sm:gap-6"
         >
           {/* Eyebrow */}
           <div className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.25em] text-tealGlow">
@@ -147,7 +147,7 @@ function CopilotHero() {
 
           {/* Headline + sparkling half-underline */}
           <div className="relative">
-            <h1 className="display text-5xl sm:text-6xl lg:text-[5.5rem] font-semibold tracking-tight leading-[1.05]">
+            <h1 className="display text-[2.5rem] leading-[1.05] sm:text-6xl lg:text-[5.5rem] font-semibold tracking-tight">
               <span className="block text-text drop-shadow-md">Answers, Cited</span>
               <span className="block text-gradient-teal mt-2">
                 From Your Data
