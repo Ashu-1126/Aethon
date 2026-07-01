@@ -161,8 +161,7 @@ export default function Dashboard() {
                             collapsed={
                               <motion.div
                                 initial={{ opacity: 0, x: -20 }}
-                                whileInView={{ opacity: 1, x: 0 }}
-                                viewport={{ once: true }}
+                                animate={{ opacity: 1, x: 0 }}
                                 transition={{ delay: i * 0.08 }}
                                 className="flex flex-col gap-2 rounded-xl border border-border bg-base/50 px-4 py-3 transition-colors hover:border-teal/30 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
                               >
@@ -227,8 +226,7 @@ export default function Dashboard() {
                               <div className="h-1 overflow-hidden rounded-full bg-border">
                                 <motion.div
                                   initial={{ width: 0 }}
-                                  whileInView={{ width: `${s.score}%` }}
-                                  viewport={{ once: true }}
+                                  animate={{ width: `${s.score}%` }}
                                   transition={{ duration: 1, delay: 0.3 }}
                                   className="h-full rounded-full bg-gradient-to-r from-teal to-gold"
                                 />
@@ -299,8 +297,7 @@ function ComplianceRing({ value }: { value: number }) {
           strokeLinecap="round"
           strokeDasharray={c}
           initial={{ strokeDashoffset: c }}
-          whileInView={{ strokeDashoffset: c - (c * value) / 100 }}
-          viewport={{ once: true }}
+          animate={{ strokeDashoffset: c - (c * value) / 100 }}
           transition={{ duration: 1.6, ease: "easeOut" }}
         />
         <defs>

@@ -9,7 +9,7 @@ import { CTA, Footer } from "@/components/landing/CTA";
 
 export default function Home() {
   return (
-    <main className="relative overflow-x-hidden">
+    <main className="relative">
       <Navbar />
       <Hero />
       <Stats />

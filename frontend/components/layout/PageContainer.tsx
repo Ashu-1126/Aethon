@@ -30,7 +30,12 @@ export function PageContainer({
   return (
     <main
       className={cn(
-        "relative min-h-screen overflow-x-hidden pt-14 md:ml-60 md:pt-0",
+        // NOTE: no `overflow-x-hidden` here — it turns <main> into a clipping
+        // context that breaks framer-motion's whileInView IntersectionObserver,
+        // freezing every below-the-fold reveal at opacity:0. Horizontal overflow
+        // is contained by `body { overflow-x: hidden }` + AmbientBackground's own
+        // overflow-hidden instead.
+        "relative min-h-screen pt-14 md:ml-60 md:pt-0",
         hero && "bg-abyss",
         flush && "flex flex-col"
       )}

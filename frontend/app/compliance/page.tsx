@@ -63,8 +63,7 @@ function StandardCard({ s }: { s: ComplianceResult }) {
           <div className="hidden h-1.5 w-28 overflow-hidden rounded-full bg-border sm:block">
             <motion.div
               initial={{ width: 0 }}
-              whileInView={{ width: `${s.score}%` }}
-              viewport={{ once: true }}
+              animate={{ width: `${s.score}%` }}
               transition={{ duration: 1 }}
               className={`h-full rounded-full bg-gradient-to-r ${barColor(s.score)}`}
             />
@@ -429,8 +428,7 @@ function ComplianceRing({ value }: { value: number }) {
           strokeLinecap="round"
           strokeDasharray={c}
           initial={{ strokeDashoffset: c }}
-          whileInView={{ strokeDashoffset: c - (c * value) / 100 }}
-          viewport={{ once: true }}
+          animate={{ strokeDashoffset: c - (c * value) / 100 }}
           transition={{ duration: 1.6, ease: "easeOut" }}
         />
         <defs>
