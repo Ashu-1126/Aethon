@@ -14,6 +14,9 @@ import {
   Wrench,
   ShieldCheck,
   Brain,
+  Cable,
+  Layers,
+  Lock,
   Menu,
   X,
 } from "lucide-react";
@@ -29,6 +32,9 @@ const nav = [
   { href: "/compliance",        label: "Compliance",        icon: ShieldCheck },
   { href: "/knowledge-cliff",   label: "Knowledge Cliff",   icon: Brain },
   { href: "/upload",            label: "Documents",         icon: UploadCloud },
+  { href: "/integrations",      label: "Integrations",      icon: Cable },
+  { href: "/solutions",         label: "Solutions",         icon: Layers },
+  { href: "/security",          label: "Security",          icon: Lock },
   { href: "/scoreboard",        label: "Scoreboard",        icon: Target },
 ];
 
