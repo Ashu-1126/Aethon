@@ -202,7 +202,7 @@ export default function CompliancePage() {
           <div className="mt-6 flex items-start gap-3 rounded-xl border border-gold/30 bg-gold/10 px-4 py-3 text-sm shadow-[0_0_15px_rgba(244,212,136,0.05)]">
             <AlertTriangle className="h-4 w-4 flex-none text-goldGlow mt-0.5" />
             <div>
-              <p className="font-semibold text-goldGlow">⚠️ Regulatory Update Alert</p>
+              <p className="font-semibold text-goldGlow">Regulatory Update Alert</p>
               <p className="mt-0.5 text-muted/90 leading-relaxed text-xs sm:text-sm">
                 OSHA updated Confined Space entry regulations (29 CFR 1910.146) on Oct 1st. 
                 <span className="font-semibold text-text"> 2 of your SOPs</span> were automatically flagged as non-compliant.

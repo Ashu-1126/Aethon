@@ -30,7 +30,7 @@ export function PageContainer({
   return (
     <main
       className={cn(
-        "relative min-h-screen pt-14 md:ml-60 md:pt-0",
+        "relative min-h-screen overflow-x-hidden pt-14 md:ml-60 md:pt-0",
         hero && "bg-abyss",
         flush && "flex flex-col"
       )}
@@ -41,7 +41,7 @@ export function PageContainer({
       {hero && <div className="relative z-10">{hero}</div>}
       <div
         className={cn(
-          "relative z-10 mx-auto w-full px-4 py-8 sm:px-6 sm:py-10 lg:px-10",
+          "relative z-10 mx-auto w-full min-w-0 px-4 py-8 sm:px-6 sm:py-10 lg:px-10",
           max,
           flush && "flex flex-1 flex-col",
           className

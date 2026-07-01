@@ -33,7 +33,7 @@ export function PanelExpand({
 
   return (
     <>
-      <motion.div layoutId={`panel-${id}`} className="relative">
+      <motion.div layoutId={`panel-${id}`} className="relative w-full min-w-0">
         {/* expand button — sits above panel content, top-right */}
         <button
           onClick={() => setOpen(true)}

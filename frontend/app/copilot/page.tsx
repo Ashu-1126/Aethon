@@ -231,7 +231,7 @@ export default function Copilot() {
   return (
     <div className="min-h-screen bg-abyss">
       <AppSidebar />
-      <main className="md:ml-60 flex flex-col min-h-screen relative bg-abyss">
+      <main className="md:ml-60 flex flex-col min-h-screen relative bg-abyss pt-14 md:pt-0">
 
         {/* single ambient backdrop shared by the hero AND the chat below */}
         <HeroBackground />

@@ -114,26 +114,26 @@ export default function RCAPage() {
 
         {/* Equipment Selector */}
         <Reveal delay={0.1}>
-          <div className="mt-8 flex flex-wrap gap-4">
+          <div className="mt-8 grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:gap-4">
             {EQUIPMENT.map((eq) => (
               <button
                 key={eq.id}
                 id={`rca-eq-${eq.id.replace(/\s+/g, "-").toLowerCase()}`}
                 onClick={() => setSelected(eq.id)}
-                className={`relative flex flex-col items-start rounded-xl border px-4 py-3 text-left transition-all duration-300 ${
+                className={`relative flex min-w-0 flex-col items-start rounded-xl border px-4 py-3 text-left transition-all duration-300 ${
                   selected === eq.id
                     ? "border-teal bg-teal/10 shadow-glow-teal"
                     : "border-border bg-surface/50 hover:border-teal/40"
                 }`}
               >
-                <div className="flex items-center gap-2">
-                  <span className={`h-2 w-2 rounded-full ${eq.status === 'critical' ? 'bg-danger animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]' : eq.status === 'warning' ? 'bg-gold' : 'bg-teal'}`} />
-                  <span className={`text-sm font-semibold font-mono ${selected === eq.id ? 'text-tealGlow' : 'text-text'}`}>{eq.name}</span>
+                <div className="flex w-full items-center gap-2">
+                  <span className={`h-2 w-2 flex-none rounded-full ${eq.status === 'critical' ? 'bg-danger animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]' : eq.status === 'warning' ? 'bg-gold' : 'bg-teal'}`} />
+                  <span className={`truncate text-sm font-semibold font-mono ${selected === eq.id ? 'text-tealGlow' : 'text-text'}`}>{eq.name}</span>
                 </div>
-                <div className="mt-1 flex items-center gap-2 text-[10px] text-muted">
-                  <span>{eq.location}</span>
-                  <span>•</span>
-                  <span className={eq.criticality === 'Class A' ? 'text-gold/80' : ''}>{eq.criticality}</span>
+                <div className="mt-1 flex w-full items-center gap-2 text-[10px] text-muted">
+                  <span className="truncate">{eq.location}</span>
+                  <span className="flex-none">•</span>
+                  <span className={`flex-none ${eq.criticality === 'Class A' ? 'text-gold/80' : ''}`}>{eq.criticality}</span>
                 </div>
               </button>
             ))}
