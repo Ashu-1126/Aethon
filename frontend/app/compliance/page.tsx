@@ -250,25 +250,26 @@ export default function CompliancePage() {
                 </div>
               </Reveal>
 
-              {/* Per-standard score cards */}
-              <Stagger className="lg:col-span-3 grid grid-cols-2 gap-4 sm:grid-cols-4">
+              {/* Per-standard score cards — fill the column height alongside the
+                  tall score card instead of leaving a big empty gap */}
+              <Stagger className="lg:col-span-3 grid grid-cols-2 gap-4 sm:grid-cols-2">
                 {loading || !audit
                   ? [0, 1, 2, 3].map((i) => (
                       <StaggerItem key={i}>
-                        <TiltCard className="p-5" intensity={6}>
+                        <TiltCard className="h-full p-5" intensity={6}>
                           <Skeleton className="h-6 w-16 mb-2" />
                           <Skeleton className="h-8 w-12" />
                         </TiltCard>
                       </StaggerItem>
                     ))
                   : audit.standards.map((s) => (
-                      <StaggerItem key={s.standard}>
-                        <TiltCard className="p-5" intensity={6}>
+                      <StaggerItem key={s.standard} className="h-full">
+                        <TiltCard className="flex h-full flex-col justify-center p-5 sm:p-6" intensity={6}>
                           <p className="mb-1 text-xs text-muted font-mono">{s.standard}</p>
-                          <p className={`display text-3xl font-semibold ${scoreColor(s.score)}`}>
+                          <p className={`display text-4xl font-semibold ${scoreColor(s.score)}`}>
                             <Counter to={s.score} suffix="%" />
                           </p>
-                          <p className="mt-1 text-[10px] text-muted">
+                          <p className="mt-1.5 text-[11px] text-muted">
                             {s.gaps.length === 0
                               ? "✓ compliant"
                               : `${s.gaps.length} gap${s.gaps.length > 1 ? "s" : ""}`}
