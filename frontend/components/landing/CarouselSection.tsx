@@ -72,6 +72,17 @@ export function CarouselSection() {
   const pausedRef = useRef(false);
   pausedRef.current = paused;
 
+  // spread factor: shrink card size + side-card offsets on small screens so
+  // the 3D carousel never overflows the viewport (was pushing page width wide,
+  // which shoved every other section to the left on mobile)
+  const [spread, setSpread] = useState(1);
+  useEffect(() => {
+    const onResize = () => setSpread(Math.min(1, window.innerWidth / 900));
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
   const n = ZONES.length;
   const go = (dir: number) => {
     setFlipped(false);
@@ -97,14 +108,17 @@ export function CarouselSection() {
   const transformFor = (offset: number) => {
     const abs = Math.abs(offset);
     const dir = Math.sign(offset);
+    const s = spread; // 1 on desktop, <1 on narrow screens — scales side offsets
+    // keep the active card readable (don't shrink below 0.9); only the side
+    // cards + their x-offsets scale down so nothing overflows on mobile
     if (offset === 0) return { rotateY: 0, z: 0, scale: 1, x: 0, opacity: 1, zIndex: 50, show: true };
-    if (abs === 1) return { rotateY: -dir * 40, z: -200, scale: 0.84, x: dir * 320, opacity: 0.85, zIndex: 40, show: true };
-    if (abs === 2) return { rotateY: -dir * 60, z: -420, scale: 0.68, x: dir * 560, opacity: 0.4, zIndex: 30, show: true };
-    return { rotateY: -dir * 78, z: -620, scale: 0.52, x: dir * 700, opacity: 0, zIndex: 10, show: false };
+    if (abs === 1) return { rotateY: -dir * 40, z: -200, scale: 0.84, x: dir * 320 * s, opacity: 0.85, zIndex: 40, show: true };
+    if (abs === 2) return { rotateY: -dir * 60, z: -420, scale: 0.68, x: dir * 560 * s, opacity: 0.4, zIndex: 30, show: true };
+    return { rotateY: -dir * 78, z: -620, scale: 0.52, x: dir * 700 * s, opacity: 0, zIndex: 10, show: false };
   };
 
   return (
-    <section id="zones" className="relative px-6 py-16 sm:py-28">
+    <section id="zones" className="relative overflow-hidden px-6 py-16 sm:py-28">
       <Reveal className="mx-auto mb-14 max-w-2xl text-center">
         <span className="chip mb-5">Deployed across the facility</span>
         <h2 className="display text-3xl font-semibold sm:text-4xl">
@@ -130,7 +144,7 @@ export function CarouselSection() {
           return (
             <motion.div
               key={i}
-              className="absolute h-[29rem] w-[23rem] [transform-style:preserve-3d]"
+              className="absolute h-[26rem] w-[18rem] sm:h-[29rem] sm:w-[23rem] [transform-style:preserve-3d]"
               style={{ zIndex: t.zIndex, pointerEvents: t.show ? "auto" : "none" }}
               animate={{ rotateY: t.rotateY, z: t.z, scale: t.scale, x: t.x, opacity: t.opacity }}
               transition={SPRING}
