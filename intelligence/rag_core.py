@@ -42,9 +42,11 @@ def pull_models_if_missing():
 
 from document_loader import DocumentLoader
 from vector_store import VectorStore
+from graph_store import GraphStore
+from extractor import GraphExtractor
 
 def ingest_pdf(filepath: str) -> bool:
-    """End-to-end: Load a PDF, chunk it, and store it in ChromaDB."""
+    """End-to-end: Load a PDF, chunk it, extract knowledge graph, and store it."""
     try:
         loader = DocumentLoader()
         chunks = loader.load_pdf(filepath)
@@ -53,8 +55,27 @@ def ingest_pdf(filepath: str) -> bool:
             print("[Error] No text could be extracted from the document.")
             return False
             
+        # 1. Store chunks in Vector Database
         store = VectorStore()
         store.add_chunks(chunks)
+        
+        # 2. Extract and Store in Graph Database
+        graph_db = GraphStore()
+        extractor = GraphExtractor()
+        
+        print("Extracting entities and relationships for the Knowledge Graph...")
+        for chunk in chunks:
+            graph_data = extractor.extract_from_text(chunk["content"])
+            
+            # Save nodes
+            for node in graph_data.get("nodes", []):
+                graph_db.add_node(node["id"], node["label"], node["type"])
+                
+            # Save edges
+            for edge in graph_data.get("edges", []):
+                graph_db.add_edge(edge["source"], edge["target"], edge["relation"])
+                
+        print("[OK] Knowledge Graph updated successfully!")
         return True
     except Exception as e:
         print(f"[Error] Failed to ingest {filepath}: {e}")
