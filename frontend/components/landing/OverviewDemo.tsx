@@ -218,8 +218,8 @@ export function OverviewDemo() {
           ))}
         </div>
 
-        {/* ── RIGHT: orbital ring + stats ── */}
-        <div className="relative order-3 flex h-[30rem] w-full items-center justify-center lg:order-none lg:h-[48rem]">
+        {/* ── RIGHT: orbital ring + stats (desktop showpiece — hidden on mobile) ── */}
+        <div className="relative order-3 hidden h-[48rem] w-full items-center justify-center lg:order-none lg:flex">
           <OrbitalRing />
 
           {/* floating stats — Far Right Edge */}
