@@ -35,3 +35,7 @@ next-env.d.ts
 
 # markdown
 task.md
+
+# cloudflare & opennext
+.open-next/
+.wrangler/
