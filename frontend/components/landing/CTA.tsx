@@ -172,28 +172,27 @@ export function Footer() {
             <div>
               <h3 className="text-sm font-semibold text-text mb-4">Platform</h3>
               <ul className="space-y-3 text-sm text-muted/80">
-                <li><a href="#" className="hover:text-tealGlow transition-colors">Copilot</a></li>
-                <li><a href="#" className="hover:text-tealGlow transition-colors">Knowledge Graph</a></li>
-                <li><a href="#" className="hover:text-tealGlow transition-colors">Compliance Engine</a></li>
-                <li><a href="#" className="hover:text-tealGlow transition-colors">Integrations</a></li>
+                <li><Link href="/copilot" className="hover:text-tealGlow transition-colors">Copilot</Link></li>
+                <li><Link href="/knowledge-graph" className="hover:text-tealGlow transition-colors">Knowledge Graph</Link></li>
+                <li><Link href="/compliance" className="hover:text-tealGlow transition-colors">Compliance Engine</Link></li>
+                <li><Link href="/integrations" className="hover:text-tealGlow transition-colors">Integrations</Link></li>
               </ul>
             </div>
             <div>
               <h3 className="text-sm font-semibold text-text mb-4">Solutions</h3>
               <ul className="space-y-3 text-sm text-muted/80">
-                <li><a href="#" className="hover:text-tealGlow transition-colors">Refineries</a></li>
-                <li><a href="#" className="hover:text-tealGlow transition-colors">Manufacturing</a></li>
-                <li><a href="#" className="hover:text-tealGlow transition-colors">Energy & Utilities</a></li>
-                <li><a href="#" className="hover:text-tealGlow transition-colors">Health & Safety</a></li>
+                <li><Link href="/solutions" className="hover:text-tealGlow transition-colors">Refineries</Link></li>
+                <li><Link href="/solutions" className="hover:text-tealGlow transition-colors">Manufacturing</Link></li>
+                <li><Link href="/solutions" className="hover:text-tealGlow transition-colors">Energy & Utilities</Link></li>
+                <li><Link href="/solutions" className="hover:text-tealGlow transition-colors">Health & Safety</Link></li>
               </ul>
             </div>
             <div>
               <h3 className="text-sm font-semibold text-text mb-4">Company</h3>
               <ul className="space-y-3 text-sm text-muted/80">
-                <li><a href="#" className="hover:text-tealGlow transition-colors">About Us</a></li>
-                <li><a href="#" className="hover:text-tealGlow transition-colors">Careers</a></li>
-                <li><a href="#" className="hover:text-tealGlow transition-colors">Security (SOC2)</a></li>
-                <li><a href="#" className="hover:text-tealGlow transition-colors">Contact</a></li>
+                <li><Link href="/dashboard" className="hover:text-tealGlow transition-colors">Console</Link></li>
+                <li><Link href="/rca" className="hover:text-tealGlow transition-colors">Maintenance & RCA</Link></li>
+                <li><Link href="/security" className="hover:text-tealGlow transition-colors">Security (SOC2)</Link></li>
               </ul>
             </div>
           </div>
