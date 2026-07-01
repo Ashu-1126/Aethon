@@ -7,6 +7,12 @@
   overflow: hidden;
 }
 
+/* scroll-reactive variant: pinned to the viewport so the orb travels with the
+   scroll across the whole page (the wave "comes with you") */
+.aethon-particle-bg--fixed {
+  position: fixed;
+}
+
 .aethon-particle-bg canvas {
   position: absolute;
   inset: 0;

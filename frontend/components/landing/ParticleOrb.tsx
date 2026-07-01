@@ -78,15 +78,91 @@ function makeCirclePoints(count: number): Float32Array {
   return out;
 }
 
-export default function ParticleOrb({ opacity = 0.6 }: { opacity?: number }) {
+/**
+ * Evenly-distributed points filling a regular HEXAGON (flat-top), normalized +
+ * centered to roughly [-0.5, 0.5]. Uses the golden-angle spiral then clamps each
+ * point inside the hexagon so the fill is dense and even.
+ */
+function makeHexPoints(count: number): Float32Array {
+  const out = new Float32Array(count * 2);
+  const R = 0.5;
+  // half-plane normals of a pointy-top hexagon (6 edges)
+  const edges: [number, number][] = [];
+  for (let e = 0; e < 6; e++) {
+    const a = (Math.PI / 3) * e + Math.PI / 6;
+    edges.push([Math.cos(a), Math.sin(a)]);
+  }
+  const apothem = R * Math.cos(Math.PI / 6); // inradius
+  for (let i = 0; i < count; i++) {
+    const r = Math.sqrt((i + 0.5) / count) * R;
+    const a = GOLDEN * i;
+    let x = Math.cos(a) * r;
+    let y = Math.sin(a) * r;
+    // pull any point outside the hexagon back onto its nearest edge
+    for (const [nx, ny] of edges) {
+      const dist = x * nx + y * ny;
+      if (dist > apothem) {
+        x -= (dist - apothem) * nx;
+        y -= (dist - apothem) * ny;
+      }
+    }
+    out[i * 2] = x;
+    out[i * 2 + 1] = y;
+  }
+  return out;
+}
+
+export default function ParticleOrb({
+  opacity = 0.6,
+  scrollReactive = false,
+}: {
+  opacity?: number;
+  /** When true, scroll velocity bursts the orb outward; it springs back on stop. */
+  scrollReactive?: boolean;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const [enabled, setEnabled] = useState(false);
+  // live scroll "energy" — spikes while scrolling, decays each frame to 0 on stop
+  const scrollEnergy = useRef(0);
+  // signed scroll direction (+down / -up) so the scatter reads as a travelling wave
+  const scrollDir = useRef(0);
+  // opacity multiplier that dims the orb as it leaves the hero (readability)
+  const dimRef = useRef(1);
+  // size multiplier — 1 over the hero, grows larger on the lower sections
+  const growRef = useRef(1);
+  // 0 over the hero → 1 on lower sections: morphs the orb from sphere to hexagon
+  const hexRef = useRef(0);
 
   useEffect(() => {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (!reduced) setEnabled(true);
   }, []);
+
+  // measure scroll velocity + direction → scatter the orb into a travelling wave,
+  // and dim it as it moves past the first viewport (readability on lower sections)
+  useEffect(() => {
+    if (!enabled || !scrollReactive) return;
+    let lastY = window.scrollY;
+    const onScroll = () => {
+      const y = window.scrollY;
+      const delta = y - lastY;
+      lastY = y;
+      // accumulate energy (clamped) + remember which way we're heading
+      scrollEnergy.current = Math.min(scrollEnergy.current + Math.abs(delta) * 0.06, 6);
+      if (delta !== 0) scrollDir.current = Math.sign(delta);
+      // full strength over the hero, fading to ~40% once a full viewport down
+      const vh = window.innerHeight || 800;
+      dimRef.current = Math.max(0.4, 1 - y / vh);
+      // 1x over the hero, growing up to ~1.7x as it travels down the page
+      growRef.current = 1 + Math.min(y / vh, 1) * 0.7;
+      // sphere over the hero → hexagon once ~60% of a viewport down
+      hexRef.current = Math.min(Math.max((y / vh - 0.15) / 0.45, 0), 1);
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [enabled, scrollReactive]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -103,6 +179,7 @@ export default function ParticleOrb({ opacity = 0.6 }: { opacity?: number }) {
     let running = true;
     let visible = true;
     const logoPts: Float32Array = makeCirclePoints(N);
+    const hexPts: Float32Array = makeHexPoints(N);
     const sprites = makeSprites();
 
     const resize = () => {
@@ -171,6 +248,16 @@ export default function ParticleOrb({ opacity = 0.6 }: { opacity?: number }) {
       const cycleN = Math.floor((now - t0) / CYCLE);
       const tSec = now * 0.001;
 
+      // scroll-scatter: read this frame's energy, then decay it toward 0 so the
+      // orb re-gathers quickly (~0.5s) once scrolling stops
+      const scatter = scrollEnergy.current;
+      scrollEnergy.current *= Math.pow(0.86, dt);
+      if (scrollEnergy.current < 0.01) scrollEnergy.current = 0;
+      // dimming multiplier (1 = hero, fades on lower sections); only when reactive
+      const dim = scrollReactive ? dimRef.current : 1;
+      const grow = scrollReactive ? growRef.current : 1;
+      const hex = scrollReactive ? hexRef.current : 0;
+
       ctx.clearRect(0, 0, W, H);
       ctx.globalCompositeOperation = "lighter";
 
@@ -178,7 +265,7 @@ export default function ParticleOrb({ opacity = 0.6 }: { opacity?: number }) {
       if (tc > D) env = 1 - ((tc - D) / T_DISSOLVE) * 0.65;
       else if (tc < A) env = 0.35 + (tc / A) * 0.65;
 
-      const orbR = SCALE * 0.42 * (1 + 0.035 * Math.sin(tSec * 1.1));
+      const orbR = SCALE * 0.42 * grow * (1 + 0.035 * Math.sin(tSec * 1.1));
       const floatX = Math.sin(tSec * 0.31) * SCALE * 0.03;
       const floatY = Math.cos(tSec * 0.23) * SCALE * 0.045;
       const rotY = tSec * 0.28;
@@ -218,8 +305,21 @@ export default function ParticleOrb({ opacity = 0.6 }: { opacity?: number }) {
           depthAlpha = 0.35 + ((z2 + 1) / 2) * 0.65;
           depthSize = 0.6 + persp * 0.5;
 
+          // morph the 3D orb toward a flat 2D hexagon as we scroll down the page
+          if (hex > 0) {
+            const hxTarget = CX + floatX + hexPts[i * 2] * orbR * 2;
+            const hyTarget = CY + floatY + hexPts[i * 2 + 1] * orbR * 2;
+            tx += (hxTarget - tx) * hex;
+            ty += (hyTarget - ty) * hex;
+            // flatten depth cues as it becomes a 2D shape
+            depthAlpha += (1 - depthAlpha) * hex;
+            depthSize += (1 - depthSize) * hex;
+          }
+
           const morphIn = tc < C ? (tc - B) / T_MORPH : 1;
-          k = 0.02 + morphIn * 0.07;
+          // stiffen the return spring while (and just after) scattering so the
+          // orb snaps back springily in ~0.5s instead of drifting home slowly
+          k = 0.02 + morphIn * 0.07 + Math.min(scatter, 3) * 0.05;
           damp = 0.8;
 
           if (tc >= C) {
@@ -254,6 +354,25 @@ export default function ParticleOrb({ opacity = 0.6 }: { opacity?: number }) {
           vx[i] += (tx - px[i]) * k * dt;
           vy[i] += (ty - py[i]) * k * dt;
         }
+
+        // scroll-driven turbulence: the orb bursts into a wave that travels WITH
+        // the scroll. Radial scatter + swirl for chaos, plus a directional drag
+        // biased opposite the scroll (particles stream past like a wake). When
+        // scrolling stops, `scatter` fades and the spring pulls it back to shape.
+        if (scatter > 0) {
+          const dir = scrollDir.current;
+          // DOMINANT directional stream — particles trail in the scroll direction
+          // so the orb reads as a travelling WAVE (down scroll → wave streams up).
+          // Per-particle spread (by x-position) gives the wave a crest.
+          const lane = (px[i] - CX) / (SCALE || 1); // -0.5..0.5 across the orb
+          vy[i] += dir * scatter * (1.8 + Math.cos(lane * Math.PI) * 0.9) * dt;
+          // gentle lateral shear + light radial spread for organic wave texture
+          vx[i] += Math.sin(tSec * 3 + lane * 6) * scatter * 0.35 * dt;
+          const dx = px[i] - (CX + floatX);
+          const d = Math.abs(dx) || 1;
+          vx[i] += (dx / d) * scatter * 0.2 * dt;
+        }
+
         const dampDt = Math.pow(damp, dt);
         vx[i] *= dampDt;
         vy[i] *= dampDt;
@@ -261,7 +380,7 @@ export default function ParticleOrb({ opacity = 0.6 }: { opacity?: number }) {
         py[i] += vy[i] * dt;
 
         const s = size[i] * depthSize;
-        ctx.globalAlpha = Math.min(1, 0.55 * env * depthAlpha);
+        ctx.globalAlpha = Math.min(1, 0.62 * env * depthAlpha * dim);
         ctx.drawImage(sprites[ci[i]], px[i] - s, py[i] - s, s * 2, s * 2);
       }
 
@@ -295,7 +414,12 @@ export default function ParticleOrb({ opacity = 0.6 }: { opacity?: number }) {
   if (!enabled) return null;
 
   return (
-    <div ref={wrapRef} className="aethon-particle-bg" style={{ opacity }} aria-hidden="true">
+    <div
+      ref={wrapRef}
+      className={`aethon-particle-bg${scrollReactive ? " aethon-particle-bg--fixed" : ""}`}
+      style={{ opacity }}
+      aria-hidden="true"
+    >
       <div className="aethon-particle-ambient" />
       <canvas ref={canvasRef} />
     </div>

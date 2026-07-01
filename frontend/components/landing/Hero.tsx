@@ -39,8 +39,8 @@ export function Hero() {
     <section className="relative flex min-h-screen items-center justify-center overflow-hidden bg-radial-teal px-6 pt-24 sm:pt-28">
       <div className="bg-radial-gold absolute inset-0" />
 
-      {/* central particle orb (canvas, behind the headline) */}
-      <ParticleOrb opacity={0.6} />
+      {/* central particle orb (canvas, behind the headline) — scatters on scroll */}
+      <ParticleOrb opacity={0.6} scrollReactive />
 
       {/* floating document chips */}
       {floatCards.map((c, i) => (
