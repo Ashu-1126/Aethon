@@ -9,6 +9,7 @@ import { UploadCloud, FileText, CheckCircle2, XCircle, Loader2 } from "lucide-re
 import { documents, ApiError, IS_MOCK } from "@/lib/api";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import type { Document, DocStatus, IngestProgress } from "@/lib/types";
+import { PageHero } from "@/components/layout/PageHero";
 
 const ACCEPTED = [".pdf", ".docx", ".xlsx", ".csv", ".txt", ".png", ".jpg"];
 const MAX_MB = 50;
@@ -113,19 +114,18 @@ export default function UploadPage() {
   return (
     <div className="min-h-screen">
       <AppSidebar />
-      <PageContainer size="narrow">
-          <Reveal>
-            <p className="font-mono text-xs uppercase tracking-widest text-tealGlow">
-              Ingestion
-            </p>
-            <h1 className="display mt-1 text-2xl font-semibold sm:text-3xl md:text-4xl">
-              Feed the Brain
-            </h1>
-            <p className="mt-3 max-w-xl text-muted">
-              Drop drawings, manuals, procedures, regulations or incident reports. Each one
-              is parsed, embedded and woven into the knowledge graph automatically.
-            </p>
-          </Reveal>
+      <PageContainer 
+        size="narrow"
+        hero={
+          <PageHero 
+            badgeLabel="✦ Data"
+            badgeText="Ingestion"
+            title1="Feed"
+            title2="the Brain"
+            description="Drop drawings, manuals, procedures, regulations or incident reports. Each one is parsed, embedded and woven into the knowledge graph automatically."
+          />
+        }
+      >
 
           {/* dropzone */}
           <Reveal delay={0.1}>

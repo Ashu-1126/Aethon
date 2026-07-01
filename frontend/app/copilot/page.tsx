@@ -2,8 +2,8 @@
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { motion, AnimatePresence } from "framer-motion";
-import { useState } from "react";
-import { Send, FileText, Sparkles, Hexagon, AlertTriangle } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Send, FileText, Sparkles, Hexagon, AlertTriangle, Database, Cpu, ArrowRight } from "lucide-react";
 import { copilot, ApiError } from "@/lib/api";
 import type { Source } from "@/lib/types";
 
@@ -21,10 +21,178 @@ const suggestions = [
   "Does SOP-44 comply with confined-space entry law?",
 ];
 
+/**
+ * SparkUnderline — a half-width underline under the headline with a bright
+ * "spark" that keeps sweeping along the teal→gold stroke.
+ */
+function SparkUnderline() {
+  return (
+    <svg
+      className="mt-4 h-3 w-[45%] max-w-[340px]"
+      viewBox="0 0 340 12"
+      fill="none"
+      preserveAspectRatio="none"
+      aria-hidden
+    >
+      <defs>
+        <linearGradient id="sparkLine" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#36e9d2" />
+          <stop offset="100%" stopColor="#f4d488" />
+        </linearGradient>
+        <linearGradient id="sparkGlow" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#f4d488" stopOpacity="0" />
+          <stop offset="50%" stopColor="#f4d488" stopOpacity="1" />
+          <stop offset="100%" stopColor="#f4d488" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+
+      {/* base line */}
+      <motion.path
+        d="M2 8 H338"
+        stroke="url(#sparkLine)"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        initial={{ pathLength: 0, opacity: 0 }}
+        animate={{ pathLength: 1, opacity: 1 }}
+        transition={{ duration: 0.9, delay: 0.5, ease: "easeOut" }}
+      />
+
+      {/* travelling spark */}
+      <motion.path
+        d="M2 8 H338"
+        stroke="url(#sparkGlow)"
+        strokeWidth="3.5"
+        strokeLinecap="round"
+        pathLength={1}
+        strokeDasharray="0.18 0.82"
+        initial={{ strokeDashoffset: 1 }}
+        animate={{ strokeDashoffset: [1, -1] }}
+        transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut", delay: 1.2 }}
+        style={{ filter: "drop-shadow(0 0 6px rgba(244,212,136,0.9))" }}
+      />
+    </svg>
+  );
+}
+
+/**
+ * HeroBackground — the full ambient backdrop (teal wash, gold/teal flare,
+ * centered AETHON watermark, laser streaks). Rendered ONCE behind the whole
+ * page so the hero and the chat share one continuous surface.
+ */
+function HeroBackground() {
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
+      {/* deep teal base wash */}
+      <div className="absolute inset-0 bg-radial-teal" />
+
+      {/* Background light flare from right — teal core, gold halo */}
+      <div
+        className="absolute right-0 top-[35%] -translate-y-1/2 w-[80vw] h-[150vh] opacity-60 mix-blend-screen"
+        style={{
+          background:
+            'radial-gradient(ellipse at right center, rgba(54, 233, 210, 0.28) 0%, rgba(217, 177, 94, 0.12) 38%, transparent 72%)',
+        }}
+      />
+      <div
+        className="absolute right-0 top-[35%] -translate-y-1/2 w-[50vw] h-[100vh] opacity-70 mix-blend-screen"
+        style={{
+          background:
+            'radial-gradient(ellipse at right center, rgba(244, 212, 136, 0.55) 0%, rgba(54, 233, 210, 0.16) 28%, transparent 62%)',
+        }}
+      />
+
+      {/* Giant Watermark — centered in the hero zone */}
+      <div className="absolute top-[35vh] left-1/2 -translate-x-1/2 -translate-y-1/2 text-[22vw] font-black tracking-tighter text-tealGlow/[0.03]">
+        AETHON
+      </div>
+
+      {/* Laser lines — teal→gold gradient, span the full page height */}
+      <svg className="absolute inset-0 w-full h-full" style={{ opacity: 0.4 }}>
+        <defs>
+          <linearGradient id="laserGrad" x1="1" y1="0.5" x2="0" y2="0.5">
+            <stop offset="0%" stopColor="#36e9d2" stopOpacity="0.7" />
+            <stop offset="55%" stopColor="#f4d488" stopOpacity="0.35" />
+            <stop offset="100%" stopColor="#f4d488" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <line x1="100%" y1="6%" x2="20%" y2="0%" stroke="url(#laserGrad)" strokeWidth="0.5" />
+        <line x1="100%" y1="18%" x2="0%" y2="12%" stroke="url(#laserGrad)" strokeWidth="1.5" />
+        <line x1="100%" y1="30%" x2="30%" y2="60%" stroke="url(#laserGrad)" strokeWidth="0.5" />
+        <line x1="100%" y1="46%" x2="50%" y2="82%" stroke="url(#laserGrad)" strokeWidth="0.5" />
+        <line x1="100%" y1="70%" x2="0%" y2="94%" stroke="url(#laserGrad)" strokeWidth="1" />
+        <line x1="90%" y1="0%" x2="60%" y2="100%" stroke="url(#laserGrad)" strokeWidth="0.5" />
+      </svg>
+    </div>
+  );
+}
+
+function CopilotHero() {
+  return (
+    <div className="relative w-full min-h-[70vh] flex flex-col justify-start overflow-hidden">
+      {/* Main Content Container */}
+      <div className="relative z-10 mx-auto w-full max-w-7xl px-6 lg:px-12 flex flex-col md:flex-row items-start pt-16 pb-10">
+
+        {/* Left Side: Text and Input */}
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, ease: [0.21, 0.5, 0.27, 0.99] }}
+          className="w-full md:w-[60%] flex flex-col items-start gap-6"
+        >
+          {/* Eyebrow */}
+          <div className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.25em] text-tealGlow">
+            <Hexagon className="h-3.5 w-3.5" strokeWidth={1.6} />
+            Expert Copilot · Ask the Brain
+          </div>
+
+          {/* Headline + sparkling half-underline */}
+          <div className="relative">
+            <h1 className="display text-5xl sm:text-6xl lg:text-[5.5rem] font-semibold tracking-tight leading-[1.05]">
+              <span className="block text-text drop-shadow-md">Answers, Cited</span>
+              <span className="block text-gradient-teal mt-2">
+                From Your Data
+              </span>
+            </h1>
+            <SparkUnderline />
+          </div>
+
+          {/* Subheadline */}
+          <p className="text-[17px] text-muted max-w-lg leading-relaxed mt-2">
+            Every P&amp;ID, manual, permit, and incident report — fused into one living
+            knowledge graph. Ask anything and get an answer back in seconds, each claim
+            traced to its exact source document and page.
+          </p>
+
+          {/* trust chips */}
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            {["Exact citations", "Zero hallucination", "Audit-ready"].map((t) => (
+              <span
+                key={t}
+                className="rounded-full border border-teal/25 bg-teal/5 px-3 py-1 font-mono text-[11px] text-tealGlow"
+              >
+                {t}
+              </span>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* Right Side: reserved for flare */}
+        <div className="hidden md:flex w-full md:w-[45%] h-[500px] relative items-center justify-center -mr-12" />
+      </div>
+    </div>
+  )
+}
+
 export default function Copilot() {
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  // auto-scroll to the newest message / thinking indicator
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [msgs, thinking]);
 
   async function ask(q: string) {
     if (!q.trim() || thinking) return;
@@ -61,24 +229,25 @@ export default function Copilot() {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-abyss">
       <AppSidebar />
-      <PageContainer size="chat" flush>
-          <div className="mb-6">
-            <p className="font-mono text-xs uppercase tracking-widest text-tealGlow">
-              Expert Copilot
-            </p>
-            <h1 className="display mt-1 text-2xl font-semibold sm:text-3xl">Ask the Brain</h1>
-          </div>
+      <main className="md:ml-60 flex flex-col min-h-screen relative bg-abyss">
+
+        {/* single ambient backdrop shared by the hero AND the chat below */}
+        <HeroBackground />
+
+        {/* NEW MASSIVE HERO SECTION */}
+        <CopilotHero />
+
+        {/* CHAT INTERFACE — sits on the same continuous backdrop */}
+        <div className="relative flex flex-1 flex-col">
+          <div className="relative z-10 mx-auto w-full max-w-4xl px-4 py-12 sm:px-6 flex flex-1 flex-col">
 
           <div className="flex-1 space-y-5" aria-live="polite" aria-atomic="false">
             {msgs.length === 0 && !thinking && (
-              <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-                <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-teal/30 bg-teal/10 text-tealGlow">
-                  <Hexagon className="h-6 w-6" strokeWidth={1.5} />
-                </span>
-                <p className="text-sm text-muted">
-                  Ask anything across every document your plant has ever produced.
+              <div className="flex min-h-[40vh] flex-col items-center justify-center text-center">
+                <p className="text-sm text-muted/40">
+                  Your chat history will appear here.
                 </p>
               </div>
             )}
@@ -176,23 +345,29 @@ export default function Copilot() {
                 </div>
               </motion.div>
             )}
+
+            {/* scroll anchor — auto-scrolls into view on each new message */}
+            <div ref={bottomRef} />
           </div>
 
           {/* suggestions */}
           <div className="mb-3 mt-6 flex flex-wrap gap-2">
             {suggestions.map((s) => (
-              <button
-                key={s}
-                onClick={() => ask(s)}
-                disabled={thinking}
-                className="rounded-full border border-border px-3 py-1.5 text-xs text-muted transition-all hover:border-teal/40 hover:text-tealGlow disabled:opacity-40"
-              >
-                {s}
-              </button>
+               <button
+                 key={s}
+                 onClick={() => {
+                   setInput(s);
+                   ask(s);
+                 }}
+                 disabled={thinking}
+                 className="rounded-full border border-border px-3 py-1.5 text-xs text-muted transition-all hover:border-teal/40 hover:text-tealGlow disabled:opacity-40"
+               >
+                 {s}
+               </button>
             ))}
           </div>
 
-          {/* input */}
+          {/* lower chat input */}
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -218,7 +393,9 @@ export default function Copilot() {
               <Send className="relative z-10 h-4 w-4" />
             </motion.button>
           </form>
-      </PageContainer>
+          </div>
+        </div>
+      </main>
     </div>
   );
 }

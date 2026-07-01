@@ -11,6 +11,7 @@ import { Share2 } from "lucide-react";
 import { graph } from "@/lib/api";
 import type { GraphData, GraphNode, GraphEdge } from "@/lib/types";
 import { GRAPH_COLORS } from "@/components/graph/GraphCanvas";
+import { PageHero } from "@/components/layout/PageHero";
 
 // Lazy-load the animation-heavy canvas (client-only) to keep this route light.
 const GraphCanvas = dynamic(() => import("@/components/graph/GraphCanvas"), {
@@ -66,19 +67,18 @@ export default function KnowledgeGraph() {
   return (
     <div className="min-h-screen">
       <AppSidebar />
-      <PageContainer size="wide">
-          <Reveal>
-            <p className="font-mono text-xs uppercase tracking-widest text-tealGlow">
-              Knowledge Graph
-            </p>
-            <h1 className="display mt-1 text-2xl font-semibold sm:text-3xl md:text-4xl">
-              The relationships no one team can hold
-            </h1>
-            <p className="mt-3 max-w-xl text-muted">
-              Every entity — equipment, regulation, procedure, incident — linked into one
-              traversable structure. Hover a node to trace its connections.
-            </p>
-          </Reveal>
+      <PageContainer 
+        size="wide"
+        hero={
+          <PageHero 
+            badgeLabel="✦ Graph"
+            badgeText="Relationships"
+            title1="The connections"
+            title2="no team can hold"
+            description="Every entity — equipment, regulation, procedure, incident — linked into one traversable structure. Hover a node to trace its connections."
+          />
+        }
+      >
 
           {error ? (
             <div className="mt-8">

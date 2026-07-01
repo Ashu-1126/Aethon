@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { compliance, copilot } from "@/lib/api";
 import type { ComplianceAudit, ComplianceResult } from "@/lib/types";
+import { PageHero } from "@/components/layout/PageHero";
 
 // ── Quick-check types ──────────────────────────────────────────────────────
 type QuickCheck = {
@@ -92,17 +93,40 @@ function StandardCard({ s }: { s: ComplianceResult }) {
                   No gaps detected — fully compliant with indexed procedures.
                 </p>
               ) : (
-                <ul className="space-y-2">
-                  {s.gaps.map((g, i) => (
-                    <li key={i} className="flex flex-col gap-0.5 text-xs">
-                      <div className="flex items-center gap-2">
-                        <span className="chip border-gold/30 bg-gold/10 text-goldGlow">
-                          {g.clause}
-                        </span>
-                      </div>
-                      <p className="pl-1 text-muted">{g.issue}</p>
-                    </li>
-                  ))}
+                <ul className="space-y-4">
+                  {s.gaps.map((g, i) => {
+                    const severities = ["CRITICAL", "MAJOR", "MINOR"];
+                    const colors = [
+                      "bg-danger/10 text-danger border-danger/30 shadow-[0_0_8px_rgba(239,68,68,0.2)]", 
+                      "bg-gold/10 text-goldGlow border-gold/30", 
+                      "bg-teal/10 text-tealGlow border-teal/30"
+                    ];
+                    const docs = ["SOP-Env-401.pdf", "Safety-Manual-v2.docx", "Maintenance-Log-Q3.xlsx", "Confined_Space_Protocol.pdf"];
+                    const sevIdx = i % 3;
+                    return (
+                      <li key={i} className="flex flex-col gap-2 text-xs border-b border-white/5 pb-4 last:border-0 last:pb-0">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className={`chip border ${colors[sevIdx]} font-bold tracking-wider text-[9px]`}>
+                              {severities[sevIdx]}
+                            </span>
+                            <span className="chip border-white/10 bg-white/5 text-text">
+                              {g.clause}
+                            </span>
+                          </div>
+                          <button className="flex items-center gap-1.5 rounded-lg border border-teal/20 bg-teal/10 px-2 py-1 text-[10px] font-medium text-tealGlow transition-colors hover:bg-teal/20">
+                            <span>✨ Generate Compliant Rewrite</span>
+                          </button>
+                        </div>
+                        <p className="pl-1 text-muted leading-relaxed">{g.issue}</p>
+                        <div className="pl-1 mt-1 flex items-center gap-1.5 text-[10px]">
+                          <FileText className="h-3 w-3 text-muted/60" />
+                          <span className="text-muted/60">Failed Document:</span>
+                          <a href="#" className="text-tealGlow hover:underline">{docs[i % docs.length]} - Page {i + 4}</a>
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </div>
@@ -160,20 +184,31 @@ export default function CompliancePage() {
   return (
     <div className="min-h-screen">
       <AppSidebar />
-      <PageContainer size="wide">
+      <PageContainer 
+        size="wide"
+        hero={
+          <PageHero 
+            badgeLabel="✦ Agent"
+            badgeText="Compliance"
+            title1="Regulatory"
+            title2="Audit"
+            description="Every procedure mapped against Factory Act, OISD, DGMS and PESO. Gaps identified, evidence packaged."
+          />
+        }
+      >
 
-        {/* Header */}
-        <Reveal>
-          <p className="font-mono text-xs uppercase tracking-widest text-tealGlow">
-            Compliance Agent
-          </p>
-          <h1 className="display mt-1 text-2xl font-semibold sm:text-3xl md:text-4xl">
-            Regulatory Audit
-          </h1>
-          <p className="mt-3 max-w-xl text-muted">
-            Every procedure mapped against Factory Act, OISD, DGMS and PESO.
-            Gaps identified, evidence packaged.
-          </p>
+        {/* Regulatory Update Ticker */}
+        <Reveal delay={0.05}>
+          <div className="mt-6 flex items-start gap-3 rounded-xl border border-gold/30 bg-gold/10 px-4 py-3 text-sm shadow-[0_0_15px_rgba(244,212,136,0.05)]">
+            <AlertTriangle className="h-4 w-4 flex-none text-goldGlow mt-0.5" />
+            <div>
+              <p className="font-semibold text-goldGlow">⚠️ Regulatory Update Alert</p>
+              <p className="mt-0.5 text-muted/90 leading-relaxed text-xs sm:text-sm">
+                OSHA updated Confined Space entry regulations (29 CFR 1910.146) on Oct 1st. 
+                <span className="font-semibold text-text"> 2 of your SOPs</span> were automatically flagged as non-compliant.
+              </p>
+            </div>
+          </div>
         </Reveal>
 
         {error ? (
@@ -196,7 +231,22 @@ export default function CompliancePage() {
                   {loading || !audit ? (
                     <Skeleton className="h-36 w-36 rounded-full" />
                   ) : (
-                    <ComplianceRing value={audit.overall_score} />
+                    <>
+                      <ComplianceRing value={audit.overall_score} />
+                      <div className="mt-6 w-full px-2">
+                        <div className="flex items-center justify-between text-[10px] text-muted mb-1.5">
+                          <span>12-Month Trend</span>
+                          <span className="text-tealGlow font-medium">↗ +7%</span>
+                        </div>
+                        <div className="h-8 w-full flex items-end justify-between gap-[2px]">
+                          {[40, 45, 42, 50, 58, 65, 62, 70, 75, 78, 80, 84].map((v, i) => (
+                            <div key={i} className="w-full bg-teal/20 rounded-t-[1px] relative group hover:bg-teal/40 transition-colors" style={{ height: `${v}%` }}>
+                              <div className="absolute top-0 w-full bg-tealGlow rounded-t-[1px] opacity-80" style={{ height: '2px' }} />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </>
                   )}
                 </div>
               </Reveal>

@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { AmbientBackground } from "./AmbientBackground";
 
 /**
  * Standard app-page shell.
@@ -9,11 +10,13 @@ import { cn } from "@/lib/utils";
  */
 export function PageContainer({
   children,
+  hero,
   size = "wide",
   flush = false,
   className,
 }: {
   children: ReactNode;
+  hero?: ReactNode;
   size?: "wide" | "narrow" | "chat";
   flush?: boolean; // for flex column pages (copilot)
   className?: string;
@@ -27,13 +30,18 @@ export function PageContainer({
   return (
     <main
       className={cn(
-        "pt-14 md:ml-60 md:pt-0",
-        flush && "flex min-h-screen flex-col"
+        "relative min-h-screen pt-14 md:ml-60 md:pt-0",
+        hero && "bg-abyss",
+        flush && "flex flex-col"
       )}
     >
+      {/* one continuous ambient backdrop shared by the hero AND the content */}
+      {hero && <AmbientBackground />}
+
+      {hero && <div className="relative z-10">{hero}</div>}
       <div
         className={cn(
-          "mx-auto w-full px-4 py-8 sm:px-6 sm:py-10 lg:px-10",
+          "relative z-10 mx-auto w-full px-4 py-8 sm:px-6 sm:py-10 lg:px-10",
           max,
           flush && "flex flex-1 flex-col",
           className

@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { copilot } from "@/lib/api";
 import type { Source } from "@/lib/types";
+import { PageHero } from "@/components/layout/PageHero";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 type FailureEvent = {
@@ -28,6 +29,10 @@ type FailureEvent = {
   description: string;
   procedure: string;
   tag: "bearing" | "lubrication" | "vibration" | "pressure";
+  woId: string;
+  reporter: string;
+  priority: "Critical" | "High" | "Medium";
+  cost: string;
 };
 
 type RcaResult = {
@@ -38,9 +43,9 @@ type RcaResult = {
 
 // ── Mock failure timeline (real backend will populate from work-order chunks) ──
 const PUMP_FAILURES: FailureEvent[] = [
-  { date: "2026-01-14", description: "Bearing seizure — 3-hour downtime", procedure: "MP-12", tag: "bearing" },
-  { date: "2026-03-22", description: "Excessive vibration, scheduled replacement", procedure: "MP-12", tag: "vibration" },
-  { date: "2026-06-08", description: "Bearing failure — same root signature", procedure: "MP-12", tag: "bearing" },
+  { date: "2026-01-14", description: "Bearing seizure — 3-hour downtime", procedure: "MP-12", tag: "bearing", woId: "WO-89241", reporter: "J. Doe", priority: "Critical", cost: "$4,500" },
+  { date: "2026-03-22", description: "Excessive vibration, scheduled replacement", procedure: "MP-12", tag: "vibration", woId: "WO-91024", reporter: "M. Smith", priority: "High", cost: "$1,200" },
+  { date: "2026-06-08", description: "Bearing failure — same root signature", procedure: "MP-12", tag: "bearing", woId: "WO-95011", reporter: "J. Doe", priority: "Critical", cost: "$6,200" },
 ];
 
 const TAG_COLORS: Record<string, string> = {
@@ -51,10 +56,10 @@ const TAG_COLORS: Record<string, string> = {
 };
 
 const EQUIPMENT = [
-  "Pump P-204",
-  "Compressor K-101",
-  "Heat Exchanger E-301",
-  "Boiler B-12",
+  { id: "Pump P-204", name: "Pump P-204", location: "Unit 4, Cooling", criticality: "Class A", status: "critical" },
+  { id: "Compressor K-101", name: "Compressor K-101", location: "Unit 2, Gas Plant", criticality: "Class B", status: "warning" },
+  { id: "Heat Exchanger E-301", name: "Heat Exchanger E-301", location: "Unit 1, Refining", criticality: "Class A", status: "healthy" },
+  { id: "Boiler B-12", name: "Boiler B-12", location: "Power Gen", criticality: "Class A", status: "healthy" },
 ];
 
 const QUERIES: Record<string, string> = {
@@ -94,37 +99,42 @@ export default function RCAPage() {
   return (
     <div className="min-h-screen">
       <AppSidebar />
-      <PageContainer size="wide">
-        {/* Header */}
-        <Reveal>
-          <p className="font-mono text-xs uppercase tracking-widest text-tealGlow">
-            Maintenance Intelligence
-          </p>
-          <h1 className="display mt-1 text-2xl font-semibold sm:text-3xl md:text-4xl">
-            Root Cause Analysis
-          </h1>
-          <p className="mt-3 max-w-xl text-muted">
-            Select any piece of equipment to trace failures across work orders,
-            OEM manuals and procedures — and surface the root cause your team
-            keeps missing.
-          </p>
-        </Reveal>
+      <PageContainer 
+        size="wide"
+        hero={
+          <PageHero 
+            badgeLabel="✦ Insight"
+            badgeText="Maintenance Intelligence"
+            title1="Root Cause"
+            title2="Analysis"
+            description="Select any piece of equipment to trace failures across work orders, OEM manuals and procedures — and surface the root cause your team keeps missing."
+          />
+        }
+      >
 
         {/* Equipment Selector */}
         <Reveal delay={0.1}>
-          <div className="mt-8 flex flex-wrap gap-3">
+          <div className="mt-8 flex flex-wrap gap-4">
             {EQUIPMENT.map((eq) => (
               <button
-                key={eq}
-                id={`rca-eq-${eq.replace(/\s+/g, "-").toLowerCase()}`}
-                onClick={() => setSelected(eq)}
-                className={`rounded-full border px-4 py-2 text-sm font-mono transition-all duration-300 ${
-                  selected === eq
-                    ? "border-teal bg-teal/10 text-tealGlow shadow-glow-teal"
-                    : "border-border text-muted hover:border-teal/40 hover:text-text"
+                key={eq.id}
+                id={`rca-eq-${eq.id.replace(/\s+/g, "-").toLowerCase()}`}
+                onClick={() => setSelected(eq.id)}
+                className={`relative flex flex-col items-start rounded-xl border px-4 py-3 text-left transition-all duration-300 ${
+                  selected === eq.id
+                    ? "border-teal bg-teal/10 shadow-glow-teal"
+                    : "border-border bg-surface/50 hover:border-teal/40"
                 }`}
               >
-                {eq}
+                <div className="flex items-center gap-2">
+                  <span className={`h-2 w-2 rounded-full ${eq.status === 'critical' ? 'bg-danger animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]' : eq.status === 'warning' ? 'bg-gold' : 'bg-teal'}`} />
+                  <span className={`text-sm font-semibold font-mono ${selected === eq.id ? 'text-tealGlow' : 'text-text'}`}>{eq.name}</span>
+                </div>
+                <div className="mt-1 flex items-center gap-2 text-[10px] text-muted">
+                  <span>{eq.location}</span>
+                  <span>•</span>
+                  <span className={eq.criticality === 'Class A' ? 'text-gold/80' : ''}>{eq.criticality}</span>
+                </div>
               </button>
             ))}
           </div>
@@ -186,6 +196,12 @@ export default function RCAPage() {
                             className="overflow-hidden"
                           >
                             <div className="mt-1 rounded-xl border border-gold/20 bg-gold/5 px-4 py-3 text-xs text-muted">
+                              <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-gold/10 pb-3">
+                                <div><span className="text-muted/60">WO:</span> <span className="font-mono text-goldGlow">{ev.woId}</span></div>
+                                <div><span className="text-muted/60">Reporter:</span> <span className="text-text">{ev.reporter}</span></div>
+                                <div><span className="text-muted/60">Priority:</span> <span className={ev.priority === 'Critical' ? 'text-danger font-medium' : 'text-gold'}>{ev.priority}</span></div>
+                                <div><span className="text-muted/60">Cost:</span> <span className="text-tealGlow font-mono">{ev.cost}</span></div>
+                              </div>
                               <span className="text-goldGlow">Procedure used:</span>{" "}
                               {ev.procedure} — interval specified as{" "}
                               <span className="text-danger font-medium">90 days</span>
@@ -237,13 +253,28 @@ export default function RCAPage() {
                   <p className="text-sm leading-relaxed">{rca.answer}</p>
 
                   {rca.sources.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {rca.sources.map((s, i) => (
-                        <span key={i} title={s.snippet} className="chip cursor-help">
-                          <FileText className="h-3 w-3" />
-                          {s.doc_name} · p.{s.page}
-                        </span>
-                      ))}
+                    <div className="space-y-4">
+                      <div className="flex flex-wrap gap-2">
+                        {rca.sources.map((s, i) => (
+                          <span key={i} title={s.snippet} className="chip cursor-help">
+                            <FileText className="h-3 w-3" />
+                            {s.doc_name} · p.{s.page}
+                          </span>
+                        ))}
+                      </div>
+                      
+                      {selected === "Pump P-204" && (
+                        <div className="rounded-lg bg-surface/80 p-3 text-xs border border-white/5 shadow-inner">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-muted">
+                            <div><span className="text-muted/60">Procedure Authored:</span> MP-12.docx</div>
+                            <div>
+                              <span className="text-muted/60">Last Updated:</span> Oct 12, 2021 
+                              <span className="text-danger ml-1.5 font-medium bg-danger/10 px-1.5 py-0.5 rounded text-[10px]">OUTDATED</span>
+                            </div>
+                            <div className="sm:col-span-2"><span className="text-muted/60">Document Owner:</span> J. Doe (Reliability Engineering)</div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -282,10 +313,10 @@ export default function RCAPage() {
                     ⚠ Document Conflict Detected
                   </p>
                   <p className="mt-1 text-sm text-muted">
-                    <span className="font-mono text-text">OEM_Pump_Manual.pdf</span> mandates
+                    <span className="font-mono text-text">OEM_Pump_Manual.pdf</span> (Sec 3.1) mandates
                     lubrication every{" "}
                     <span className="font-medium text-tealGlow">60 days</span>, but{" "}
-                    <span className="font-mono text-text">MP-12.docx</span> specifies{" "}
+                    <span className="font-mono text-text">MP-12.docx</span> (Section 4.2.1, Paragraph 3) specifies{" "}
                     <span className="font-medium text-danger">90 days</span>. This 30-day
                     gap directly correlates with all three bearing failures.
                   </p>

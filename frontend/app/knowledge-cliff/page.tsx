@@ -17,6 +17,7 @@ import {
   BookOpen,
 } from "lucide-react";
 import { documents } from "@/lib/api";
+import { PageHero } from "@/components/layout/PageHero";
 
 // ── Types ─────────────────────────────────────────────────────────────────
 type Question = {
@@ -123,7 +124,18 @@ export default function KnowledgeCliffPage() {
   return (
     <div className="min-h-screen">
       <AppSidebar />
-      <PageContainer size="narrow">
+      <PageContainer 
+        size="narrow"
+        hero={
+          <PageHero 
+            badgeLabel="✦ Capture"
+            badgeText="Knowledge Cliff"
+            title1="Don't let 30 years"
+            title2="walk out the door."
+            description="This 6-question interview captures the operational wisdom your plant runs on — the tricks, workarounds, and safety knowledge that exist only in senior engineers' heads. Once saved, it's searchable by everyone, forever."
+          />
+        }
+      >
         <AnimatePresence mode="wait">
 
           {/* ── INTRO ─────────────────────────────────────────────────── */}
@@ -134,23 +146,6 @@ export default function KnowledgeCliffPage() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -24 }}
             >
-              <Reveal>
-                <p className="font-mono text-xs uppercase tracking-widest text-tealGlow">
-                  Knowledge Cliff Capture
-                </p>
-                <h1 className="display mt-1 text-2xl font-semibold sm:text-3xl md:text-4xl">
-                  Don&apos;t let{" "}
-                  <span className="text-gradient-gold italic">30 years</span>{" "}
-                  walk out the door.
-                </h1>
-                <p className="mt-4 max-w-lg text-muted">
-                  This 6-question interview captures the operational wisdom your
-                  plant runs on — the tricks, workarounds, and safety knowledge
-                  that exist only in senior engineers&apos; heads. Once saved,
-                  it&apos;s searchable by everyone, forever.
-                </p>
-              </Reveal>
-
               {/* Stats */}
               <Reveal delay={0.1}>
                 <div className="mt-8 grid grid-cols-3 gap-px overflow-hidden rounded-2xl border border-border bg-border/40">
