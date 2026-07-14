@@ -146,7 +146,7 @@ async def get_documents():
 # ══════════════════════════════════════════════════════════════════════════
 # 4. INGEST (upload) ⭐
 # ══════════════════════════════════════════════════════════════════════════
-ACCEPTED_TYPES = {".pdf", ".docx", ".txt", ".csv", ".xlsx", ".png", ".jpg"}
+ACCEPTED_TYPES = {".pdf", ".docx", ".txt", ".csv", ".xlsx", ".png", ".jpg", ".html", ".htm"}
 MAX_BYTES = 50 * 1024 * 1024  # 50 MB
 
 

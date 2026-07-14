@@ -11,7 +11,7 @@ import { useWebSocket } from "@/hooks/useWebSocket";
 import type { Document, DocStatus, IngestProgress } from "@/lib/types";
 import { PageHero } from "@/components/layout/PageHero";
 
-const ACCEPTED = [".pdf", ".docx", ".xlsx", ".csv", ".txt", ".png", ".jpg"];
+const ACCEPTED = [".pdf", ".docx", ".xlsx", ".csv", ".txt", ".png", ".jpg", ".html", ".htm"];
 const MAX_MB = 50;
 
 type QueueItem = {

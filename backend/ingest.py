@@ -116,12 +116,57 @@ def _parse_xlsx(path: Path) -> list[tuple[int, str]]:
         return []
 
 
+def _parse_html(path: Path) -> list[tuple[int, str]]:
+    from html.parser import HTMLParser
+
+    class HTMLTextExtractor(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self.text_parts = []
+            self.ignore_tags = {"script", "style", "head", "meta", "title", "link"}
+            self.current_tag = ""
+
+        def handle_starttag(self, tag, attrs):
+            self.current_tag = tag
+
+        def handle_endtag(self, tag):
+            if self.current_tag == tag:
+                self.current_tag = ""
+
+        def handle_data(self, data):
+            if self.current_tag not in self.ignore_tags:
+                text = data.strip()
+                if text:
+                    self.text_parts.append(text)
+
+        def get_text(self):
+            return "\n".join(self.text_parts)
+
+    try:
+        raw_html = path.read_text(encoding="utf-8", errors="ignore")
+        extractor = HTMLTextExtractor()
+        extractor.feed(raw_html)
+        text = extractor.get_text()
+        
+        # Split html text into logical page-sized blocks of 40 lines each
+        lines = text.splitlines()
+        pages = []
+        size = 40
+        for i in range(0, len(lines), size):
+            pages.append((i // size + 1, "\n".join(lines[i : i + size])))
+        return pages
+    except Exception:
+        return []
+
+
 PARSERS = {
     ".pdf": _parse_pdf,
     ".docx": _parse_docx,
     ".txt": _parse_txt,
     ".csv": _parse_csv,
     ".xlsx": _parse_xlsx,
+    ".html": _parse_html,
+    ".htm": _parse_html,
     ".png": lambda p: [],  # images handled via OCR pipeline separately
     ".jpg": lambda p: [],
 }
