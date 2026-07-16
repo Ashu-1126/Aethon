@@ -12,7 +12,14 @@ import type {
   DashboardStats,
   Scoreboard,
   HealthStatus,
+  Source,
 } from "./types";
+
+export type RcaResult = {
+  answer: string;
+  sources: Source[];
+  confidence: number;
+};
 
 const BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === "true";
@@ -54,6 +61,16 @@ async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
 
   if (!res.ok) {
+    if (res.status === 401 || res.status === 403) {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("aethon_token");
+        localStorage.removeItem("aethon_role");
+        window.location.href = "/login";
+        // Halt execution to prevent the UI from flickering an error state
+        await new Promise(() => {});
+      }
+    }
+
     let detail = `HTTP ${res.status}`;
     try {
       const body = await res.json();
@@ -70,6 +87,15 @@ async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 // ── Namespaced endpoints ──────────────────────────────────────────────
+
+export const auth = {
+  login: async (username: string, password: string): Promise<{ token: string; role: string }> => {
+    return apiFetch<{ token: string; role: string }>("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ username, password }),
+    });
+  },
+};
 
 export const health = {
   check: (): Promise<HealthStatus> =>
@@ -125,6 +151,11 @@ export const dashboard = {
 export const scoreboard = {
   get: (): Promise<Scoreboard> =>
     USE_MOCK ? mock.scoreboard() : apiFetch<Scoreboard>("/scoreboard"),
+};
+
+export const rca = {
+  get: (equipment: string): Promise<RcaResult> =>
+    USE_MOCK ? mock.query(equipment) as any : apiFetch<RcaResult>(`/rca/${encodeURIComponent(equipment)}`),
 };
 
 export const WS_BASE =

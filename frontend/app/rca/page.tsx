@@ -19,7 +19,7 @@ import {
   Clock,
   Send,
 } from "lucide-react";
-import { copilot } from "@/lib/api";
+import { rca as rcaApi } from "@/lib/api";
 import type { Source } from "@/lib/types";
 import { PageHero } from "@/components/layout/PageHero";
 
@@ -82,8 +82,7 @@ export default function RCAPage() {
     setError(false);
     setRca(null);
     try {
-      const query = QUERIES[equipment] ?? `Root cause analysis for ${equipment}`;
-      const result = await copilot.query(query);
+      const result = await rcaApi.get(equipment);
       setRca(result);
     } catch {
       setError(true);
