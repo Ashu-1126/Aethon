@@ -42,10 +42,10 @@ sleep 10
 
 # Pull models
 echo "🧠 Pulling llama3.1:8b (this might take a while on the first run)..."
-docker exec -it aethon-ollama ollama run llama3.1:8b "Hi, verify you are working."
+docker exec aethon-ollama ollama run llama3.1:8b "Hi, verify you are working."
 
 echo "🧠 Pulling nomic-embed-text for embeddings..."
-docker exec -it aethon-ollama ollama pull nomic-embed-text
+docker exec aethon-ollama ollama pull nomic-embed-text
 
 echo "=========================================="
 echo "✅ Boot complete!"
