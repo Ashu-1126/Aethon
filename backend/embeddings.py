@@ -11,6 +11,7 @@ Wraps ChromaDB with:
 from __future__ import annotations
 
 import hashlib
+import threading
 from typing import Any
 
 import chromadb
@@ -18,6 +19,11 @@ from chromadb.config import Settings
 import ollama
 
 from config import CHROMA_PATH, COLLECTION, EMBED_MODEL, RETRIEVAL_K
+
+# Serializes ChromaDB write operations (upsert/delete). ChromaDB's client is
+# shared process-wide, so concurrent writes from multiple ingestion tasks can
+# collide; this lock makes them safe.
+_write_lock = threading.Lock()
 
 
 # ── ChromaDB client (persistent, local) ────────────────────────────────────
@@ -73,12 +79,13 @@ def embed_and_store(chunks: list[dict]) -> int:
     # Embed in one pass (batch)
     vectors = _embed(texts)
 
-    _col.upsert(
-        ids=ids,
-        embeddings=vectors,
-        documents=texts,
-        metadatas=metadatas,
-    )
+    with _write_lock:
+        _col.upsert(
+            ids=ids,
+            embeddings=vectors,
+            documents=texts,
+            metadatas=metadatas,
+        )
     return len(chunks)
 
 
@@ -120,7 +127,8 @@ def delete_doc(doc_name: str) -> int:
     existing = _col.get(where=where, include=[])
     ids = existing["ids"]
     if ids:
-        _col.delete(ids=ids)
+        with _write_lock:
+            _col.delete(ids=ids)
     return len(ids)
 
 

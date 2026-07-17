@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import threading
 import time
 import uuid
 from pathlib import Path
@@ -24,7 +25,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 import config
-from config import UPLOAD_DIR
+from config import UPLOAD_DIR, MAX_CONCURRENT_INGESTS
 from ingest import load_and_chunk, _infer_doc_type
 from embeddings import embed_and_store, count as vec_count, delete_doc, list_docs
 from graph import (
@@ -55,20 +56,85 @@ app.add_middleware(
 # Init graph DB on startup
 init_db()
 
-# In-memory document registry (persisted via a JSON sidecar in UPLOAD_DIR)
+# In-memory document registry (persisted via a JSON sidecar in UPLOAD_DIR).
+# A single shared dict is the source of truth; every read-modify-write goes
+# through _registry_lock so concurrent ingestion tasks can't clobber each
+# other's updates (the previous per-task snapshot approach lost updates).
 _DOC_REGISTRY_PATH = UPLOAD_DIR / "_registry.json"
+_registry: dict[str, dict] | None = None
+# RLock (reentrant) so a thread that already holds the lock can call helpers
+# that also acquire it (e.g. _patch_registry -> _load_registry) without
+# deadlocking on itself.
+_registry_lock = threading.RLock()
 
 
 def _load_registry() -> dict[str, dict]:
-    if _DOC_REGISTRY_PATH.exists():
-        with open(_DOC_REGISTRY_PATH) as f:
-            return json.load(f)
-    return {}
+    """Return the shared in-memory registry, loading from disk on first use."""
+    global _registry
+    with _registry_lock:
+        if _registry is None:
+            if _DOC_REGISTRY_PATH.exists():
+                with open(_DOC_REGISTRY_PATH) as f:
+                    _registry = json.load(f)
+            else:
+                _registry = {}
+        return _registry
 
 
-def _save_registry(reg: dict) -> None:
-    with open(_DOC_REGISTRY_PATH, "w") as f:
-        json.dump(reg, f, indent=2)
+def _save_registry() -> None:
+    """Persist the shared registry to disk atomically (temp file + rename)."""
+    global _registry
+    tmp = _DOC_REGISTRY_PATH.with_suffix(".json.tmp")
+    with _registry_lock:
+        with open(tmp, "w") as f:
+            json.dump(_registry, f, indent=2)
+        tmp.replace(_DOC_REGISTRY_PATH)
+
+
+def _patch_registry(doc_id: str, **fields) -> None:
+    """Atomically update one document's fields and persist.
+
+    Loads the shared registry under the lock, applies the field updates, and
+    writes it back — so concurrent tasks never overwrite each other.
+    """
+    with _registry_lock:
+        reg = _registry if _registry is not None else _load_registry()
+        reg.setdefault(doc_id, {})
+        reg[doc_id].update(fields)
+        _save_registry()
+
+
+# ── Startup recovery ────────────────────────────────────────────────────────
+# After a crash/restart no ingestion tasks are running, so any document left in
+# a non-terminal state (parsing/embedding/queued) is orphaned. Reset those to
+# "failed" so the UI never shows a doc stuck forever.
+def _recover_orphaned_docs() -> None:
+    reg = _load_registry()
+    orphaned = False
+    for doc_id, info in reg.items():
+        if info.get("status") not in ("indexed", "failed"):
+            reg[doc_id]["status"] = "failed"
+            orphaned = True
+    if orphaned:
+        _save_registry()
+
+
+_recover_orphaned_docs()
+
+
+# Limits how many documents are processed (parsed → embedded → graphed) at once.
+# Uploads beyond the limit are queued until a slot frees up. Created lazily
+# inside the running event loop so it binds to the correct loop (a module-level
+# Semaphore created before uvicorn starts would bind to the wrong loop and fail
+# to actually limit concurrency).
+_ingest_semaphore: asyncio.Semaphore | None = None
+
+
+async def _get_ingest_semaphore() -> asyncio.Semaphore:
+    global _ingest_semaphore
+    if _ingest_semaphore is None:
+        _ingest_semaphore = asyncio.Semaphore(MAX_CONCURRENT_INGESTS)
+    return _ingest_semaphore
 
 
 # ── WebSocket connections ────────────────────────────────────────────────────
@@ -169,56 +235,56 @@ async def ingest(file: UploadFile = File(...)):
         await f.write(contents)
 
     # Register as "queued"
-    registry = _load_registry()
-    registry[doc_id] = {
-        "name":        doc_name,
-        "type":        _infer_doc_type(doc_name),
-        "status":      "queued",
-        "pages":       0,
-        "ingested_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-    }
-    _save_registry(registry)
+    _patch_registry(
+        doc_id,
+        name=doc_name,
+        type=_infer_doc_type(doc_name),
+        status="queued",
+        pages=0,
+        ingested_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    )
 
-    # Kick off background processing
+    # Kick off background processing (concurrency-limited via semaphore)
     asyncio.create_task(_process_doc(doc_id, dest, doc_name))
 
     return {"id": doc_id, "name": doc_name, "status": "queued"}
 
 
 async def _process_doc(doc_id: str, path: Path, doc_name: str) -> None:
-    """Background task: parse → embed → graph extract, push progress via WS."""
-    registry = _load_registry()
+    """Background task: parse → embed → graph extract, push progress via WS.
 
+    Acquires the ingestion semaphore so only MAX_CONCURRENT_INGESTS documents
+    are processed simultaneously; the rest wait their turn.
+    """
     async def _update(stage: str, progress: int):
-        registry[doc_id]["status"] = stage
-        _save_registry(registry)
+        _patch_registry(doc_id, status=stage)
         await _broadcast({"id": doc_id, "stage": stage, "progress": progress})
 
-    try:
-        await _update("parsing", 10)
-        loop = asyncio.get_event_loop()
+    sem = await _get_ingest_semaphore()
+    async with sem:
+        try:
+            await _update("parsing", 10)
+            loop = asyncio.get_event_loop()
 
-        # 1. Parse + chunk
-        chunks = await loop.run_in_executor(None, load_and_chunk, path)
-        registry[doc_id]["pages"] = max((c["page"] for c in chunks), default=0)
-        _save_registry(registry)
+            # 1. Parse + chunk
+            chunks = await loop.run_in_executor(None, load_and_chunk, path)
+            _patch_registry(doc_id, pages=max((c["page"] for c in chunks), default=0))
 
-        await _update("embedding", 35)
+            await _update("embedding", 35)
 
-        # 2. Embed + store in ChromaDB
-        await loop.run_in_executor(None, embed_and_store, chunks)
+            # 2. Embed + store in ChromaDB
+            await loop.run_in_executor(None, embed_and_store, chunks)
 
-        await _update("embedding", 75)
+            await _update("embedding", 75)
 
-        # 3. Knowledge graph extraction
-        await loop.run_in_executor(None, add_chunks_to_graph, chunks)
+            # 3. Knowledge graph extraction
+            await loop.run_in_executor(None, add_chunks_to_graph, chunks)
 
-        await _update("indexed", 100)
+            await _update("indexed", 100)
 
-    except Exception as e:
-        registry[doc_id]["status"] = "failed"
-        _save_registry(registry)
-        await _broadcast({"id": doc_id, "stage": "failed", "progress": 0, "error": str(e)})
+        except Exception as e:
+            _patch_registry(doc_id, status="failed")
+            await _broadcast({"id": doc_id, "stage": "failed", "progress": 0, "error": str(e)})
 
 
 # ══════════════════════════════════════════════════════════════════════════

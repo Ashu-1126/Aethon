@@ -28,3 +28,8 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 # ── RAG ────────────────────────────────────────────────────────────────────
 RETRIEVAL_K:     int   = 6     # chunks to retrieve
 CONFIDENCE_SCALE: float = 100.0
+
+# ── Concurrency ────────────────────────────────────────────────────────────
+# Max number of documents allowed to be processed (parsed/embedded/graphed)
+# at the same time. Extra uploads are queued until a slot frees up.
+MAX_CONCURRENT_INGESTS: int = int(os.getenv("MAX_CONCURRENT_INGESTS", "2"))
