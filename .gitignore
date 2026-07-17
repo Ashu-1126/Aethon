@@ -38,4 +38,7 @@ task.md
 
 # cloudflare & opennext
 .open-next/
-.wrangler/
+.wrangler/
+
+# ingested/uploaded documents (runtime data, not source)
+data/uploads/
