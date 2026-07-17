@@ -52,10 +52,37 @@ def _make_doc(i: int, tmp: Path) -> Path:
     return p
 
 
+_token = None
+
+def _login() -> str:
+    global _token
+    if _token is not None:
+        return _token
+    try:
+        r = requests.post(
+            f"{BASE_URL}/auth/login",
+            json={"username": "admin", "password": "password123"},
+            timeout=10
+        )
+        r.raise_for_status()
+        _token = r.json()["token"]
+        return _token
+    except Exception as e:
+        print(f"Login failed: {e}")
+        raise e
+
+
 def _upload(doc_path: Path) -> str | None:
     try:
+        token = _login()
+        headers = {"Authorization": f"Bearer {token}"}
         with open(doc_path, "rb") as f:
-            r = requests.post(f"{BASE_URL}/ingest", files={"file": f}, timeout=30)
+            r = requests.post(
+                f"{BASE_URL}/ingest",
+                files={"file": f},
+                headers=headers,
+                timeout=30
+            )
         if r.status_code != 202:
             with _lock:
                 _errors_seen.append(f"upload {doc_path.name}: HTTP {r.status_code}")
@@ -69,16 +96,20 @@ def _upload(doc_path: Path) -> str | None:
 def _poll() -> dict[str, str]:
     # Retry a few times: the server can be saturated by slow local LLM calls,
     # so a single slow response shouldn't be treated as a failure.
+    token = _login()
+    headers = {"Authorization": f"Bearer {token}"}
     last_err = None
     for _ in range(5):
         try:
-            r = requests.get(f"{BASE_URL}/documents", timeout=60)
+            r = requests.get(f"{BASE_URL}/documents", headers=headers, timeout=60)
             r.raise_for_status()
             return {d["id"]: d["status"] for d in r.json()["documents"]}
         except Exception as e:
             last_err = e
             time.sleep(1)
-    raise last_err
+    if last_err is not None:
+        raise last_err
+    raise RuntimeError("Failed to poll documents")
 
 
 def main() -> int:
@@ -149,7 +180,7 @@ def main() -> int:
         print("\nFAIL: a 'database is locked' / write error was observed")
         ok = False
 
-    print("\n" + ("PASS ✅  concurrency controls verified" if ok else "FAIL ❌  see above"))
+    print("\n" + ("PASS [OK]  concurrency controls verified" if ok else "FAIL [ERROR]  see above"))
     return 0 if ok else 1
 
 
