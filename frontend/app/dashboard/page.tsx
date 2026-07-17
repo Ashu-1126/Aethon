@@ -42,14 +42,24 @@ export default function Dashboard() {
   const load = useCallback(async () => {
     setLoading(true);
     setError(false);
+    
+    // Load stats first, don't block on compliance
     try {
-      const [s, a] = await Promise.all([dashboard.stats(), compliance.audit()]);
+      const s = await dashboard.stats();
       setStats(s);
-      setAudit(a);
     } catch {
       setError(true);
     } finally {
       setLoading(false);
+    }
+
+    // Load compliance separately (takes longer due to LLM)
+    try {
+      const a = await compliance.audit();
+      setAudit(a);
+    } catch {
+      // If compliance fails, we don't break the whole dashboard
+      console.error("Failed to load compliance audit");
     }
   }, []);
 

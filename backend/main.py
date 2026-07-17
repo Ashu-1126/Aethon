@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Optional
 
 import aiofiles
-from fastapi import FastAPI, File, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, File, HTTPException, UploadFile, WebSocket, WebSocketDisconnect, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -40,7 +40,9 @@ from agents import (
     detect_conflicts,
     dashboard_stats as _dashboard_stats,
     scoreboard as _scoreboard,
+    root_cause_analysis,
 )
+from auth import USERS, create_access_token, get_current_user
 
 # ── App ──────────────────────────────────────────────────────────────────────
 app = FastAPI(title="AETHON Backend", version="1.0.0")
@@ -150,6 +152,23 @@ async def _broadcast(msg: dict) -> None:
 
 
 # ══════════════════════════════════════════════════════════════════════════
+# 0. AUTHENTICATION
+# ══════════════════════════════════════════════════════════════════════════
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+@app.post("/auth/login")
+async def login(req: LoginRequest):
+    user = USERS.get(req.username)
+    if not user or user["password"] != req.password:
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+    
+    token = create_access_token(req.username, user["role"])
+    return {"token": token, "role": user["role"]}
+
+
+# ══════════════════════════════════════════════════════════════════════════
 # 1. HEALTH
 # ══════════════════════════════════════════════════════════════════════════
 @app.get("/health")
@@ -176,7 +195,7 @@ class QueryRequest(BaseModel):
 
 
 @app.post("/copilot/query")
-async def copilot_query(req: QueryRequest):
+async def copilot_query(req: QueryRequest, user: dict = Depends(get_current_user)):
     if not req.query.strip():
         raise HTTPException(400, "Query cannot be empty")
     if vec_count() == 0:
@@ -193,7 +212,7 @@ async def copilot_query(req: QueryRequest):
 # 3. DOCUMENTS
 # ══════════════════════════════════════════════════════════════════════════
 @app.get("/documents")
-async def get_documents():
+async def get_documents(user: dict = Depends(get_current_user)):
     registry = _load_registry()
     docs = [
         {
@@ -217,7 +236,7 @@ MAX_BYTES = 50 * 1024 * 1024  # 50 MB
 
 
 @app.post("/ingest", status_code=202)
-async def ingest(file: UploadFile = File(...)):
+async def ingest(file: UploadFile = File(...), user: dict = Depends(get_current_user)):
     ext = Path(file.filename).suffix.lower()
     if ext not in ACCEPTED_TYPES:
         raise HTTPException(415, f"Unsupported file type: {ext}")
@@ -306,7 +325,7 @@ async def ws_ingest(ws: WebSocket):
 # 6. KNOWLEDGE GRAPH
 # ══════════════════════════════════════════════════════════════════════════
 @app.get("/graph")
-async def get_graph_endpoint():
+async def get_graph_endpoint(user: dict = Depends(get_current_user)):
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(None, get_graph)
 
@@ -315,7 +334,7 @@ async def get_graph_endpoint():
 # 7. COMPLIANCE
 # ══════════════════════════════════════════════════════════════════════════
 @app.get("/compliance/audit")
-async def get_compliance():
+async def get_compliance(user: dict = Depends(get_current_user)):
     if vec_count() == 0:
         raise HTTPException(503, "No documents indexed yet.")
     loop = asyncio.get_event_loop()
@@ -326,7 +345,7 @@ async def get_compliance():
 # 8. CONFLICTS
 # ══════════════════════════════════════════════════════════════════════════
 @app.get("/conflicts")
-async def get_conflicts():
+async def get_conflicts(user: dict = Depends(get_current_user)):
     if vec_count() == 0:
         return {"conflicts": []}
     loop = asyncio.get_event_loop()
@@ -338,7 +357,7 @@ async def get_conflicts():
 # 9. DASHBOARD STATS
 # ══════════════════════════════════════════════════════════════════════════
 @app.get("/dashboard/stats")
-async def dashboard():
+async def dashboard(user: dict = Depends(get_current_user)):
     return _dashboard_stats()
 
 
@@ -346,5 +365,14 @@ async def dashboard():
 # 10. SCOREBOARD
 # ══════════════════════════════════════════════════════════════════════════
 @app.get("/scoreboard")
-async def scoreboard_endpoint():
+async def scoreboard_endpoint(user: dict = Depends(get_current_user)):
     return _scoreboard()
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# 11. RCA (Root Cause Analysis)
+# ══════════════════════════════════════════════════════════════════════════
+@app.get("/rca/{equipment}")
+async def get_rca(equipment: str, user: dict = Depends(get_current_user)):
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, root_cause_analysis, equipment)

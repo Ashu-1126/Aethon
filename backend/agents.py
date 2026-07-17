@@ -10,6 +10,7 @@ import re
 import time
 
 import ollama
+from fastapi import HTTPException
 
 from config import LLM_MODEL
 from embeddings import retrieve, count as vec_count, list_docs
@@ -82,19 +83,10 @@ def compliance_audit() -> dict:
             # Validate structure
             if "overall_score" in result and "standards" in result:
                 return result
-    except Exception:
-        pass
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"AI Model Offline or Error: {str(e)}")
 
-    # Fallback with realistic mock values
-    return {
-        "overall_score": 88,
-        "standards": [
-            {"standard": "Factory Act", "score": 92, "gaps": []},
-            {"standard": "OISD-116",    "score": 87, "gaps": [{"clause": "§7.2", "issue": "Review required against indexed documents"}]},
-            {"standard": "DGMS",        "score": 85, "gaps": []},
-            {"standard": "PESO",        "score": 82, "gaps": []},
-        ],
-    }
+    raise HTTPException(status_code=503, detail="AI failed to generate valid JSON for compliance audit")
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -147,10 +139,10 @@ def detect_conflicts() -> list[dict]:
         if m:
             result = json.loads(m.group())
             return result.get("conflicts", [])
-    except Exception:
-        pass
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"AI Model Offline or Error: {str(e)}")
 
-    return []
+    raise HTTPException(status_code=503, detail="AI failed to generate valid JSON for conflicts")
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -202,3 +194,53 @@ def scoreboard() -> dict:
         "keyword_baseline_seconds": 480,
         "questions_evaluated":      20,
     }
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# RCA AGENT
+# ══════════════════════════════════════════════════════════════════════════
+
+_RCA_PROMPT = """\
+You are an industrial reliability engineer. Analyze the following context from maintenance records and manuals to determine the root cause of failures for {equipment}.
+
+Context:
+{context}
+
+Provide a concise, analytical root cause analysis in 2-3 sentences.
+Then estimate a confidence percentage (0-100).
+Return ONLY valid JSON:
+{{
+  "answer": "The repeated bearing failures are caused by incorrect lubrication intervals...",
+  "confidence": 85
+}}
+
+JSON:"""
+
+def root_cause_analysis(equipment: str) -> dict:
+    chunks = retrieve(equipment + " failure interval specification procedure manual", k=6)
+    if not chunks:
+        raise HTTPException(status_code=404, detail="No maintenance records found for this equipment.")
+
+    context = "\n\n".join(
+        f"[DOC:{c['doc_name']} PAGE:{c['page']}]: {c['text'][:400]}" for c in chunks
+    )
+
+    try:
+        resp = ollama.generate(
+            model=LLM_MODEL,
+            prompt=_RCA_PROMPT.format(equipment=equipment, context=context),
+            options={"temperature": 0.0, "num_predict": 512},
+        )
+        raw = resp["response"].strip()
+        m = re.search(r"\{.*\}", raw, re.DOTALL)
+        if m:
+            result = json.loads(m.group())
+            return {
+                "answer": result.get("answer", "Analysis generated."),
+                "sources": chunks,
+                "confidence": result.get("confidence", 75)
+            }
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"AI Model Offline or Error: {str(e)}")
+
+    raise HTTPException(status_code=503, detail="AI failed to generate valid JSON for RCA")
