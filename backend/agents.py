@@ -74,15 +74,13 @@ def compliance_audit() -> dict:
         resp = ollama.generate(
             model=LLM_MODEL,
             prompt=_COMPLIANCE_PROMPT.format(context=context),
+            format="json",
             options={"temperature": 0.0, "num_predict": 1024},
         )
         raw = resp["response"].strip()
-        m = re.search(r"\{.*\}", raw, re.DOTALL)
-        if m:
-            result = json.loads(m.group())
-            # Validate structure
-            if "overall_score" in result and "standards" in result:
-                return result
+        result = json.loads(raw)
+        if "overall_score" in result and "standards" in result:
+            return result
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"AI Model Offline or Error: {str(e)}")
 
@@ -132,13 +130,12 @@ def detect_conflicts() -> list[dict]:
         resp = ollama.generate(
             model=LLM_MODEL,
             prompt=_CONFLICT_PROMPT.format(context=context),
+            format="json",
             options={"temperature": 0.0, "num_predict": 512},
         )
         raw = resp["response"].strip()
-        m = re.search(r"\{.*\}", raw, re.DOTALL)
-        if m:
-            result = json.loads(m.group())
-            return result.get("conflicts", [])
+        result = json.loads(raw)
+        return result.get("conflicts", [])
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"AI Model Offline or Error: {str(e)}")
 
@@ -229,17 +226,16 @@ def root_cause_analysis(equipment: str) -> dict:
         resp = ollama.generate(
             model=LLM_MODEL,
             prompt=_RCA_PROMPT.format(equipment=equipment, context=context),
+            format="json",
             options={"temperature": 0.0, "num_predict": 512},
         )
         raw = resp["response"].strip()
-        m = re.search(r"\{.*\}", raw, re.DOTALL)
-        if m:
-            result = json.loads(m.group())
-            return {
-                "answer": result.get("answer", "Analysis generated."),
-                "sources": chunks,
-                "confidence": result.get("confidence", 75)
-            }
+        result = json.loads(raw)
+        return {
+            "answer": result.get("answer", "Analysis generated."),
+            "sources": chunks,
+            "confidence": result.get("confidence", 75)
+        }
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"AI Model Offline or Error: {str(e)}")
 

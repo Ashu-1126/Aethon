@@ -87,6 +87,9 @@ def retrieve(query: str, k: int = RETRIEVAL_K) -> list[dict]:
     Semantic search.  Returns top-k chunks sorted by relevance.
     Each result: {text, doc_name, page, doc_type, score}
     """
+    if _col.count() == 0:
+        return []
+        
     vec = _embed([query])[0]
     results = _col.query(
         query_embeddings=[vec],
