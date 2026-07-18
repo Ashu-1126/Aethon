@@ -159,6 +159,20 @@ def _parse_html(path: Path) -> list[tuple[int, str]]:
         return []
 
 
+def _parse_image(path: Path) -> list[tuple[int, str]]:
+    """Render image and run Tesseract OCR."""
+    try:
+        import pytesseract
+        from PIL import Image
+        img = Image.open(path)
+        text = pytesseract.image_to_string(img).strip()
+        if text:
+            return [(1, text)]  # virtual page 1
+    except Exception as e:
+        print(f"[OCR Warning] Image parsing failed for {path.name}: {e}")
+    return []
+
+
 PARSERS = {
     ".pdf": _parse_pdf,
     ".docx": _parse_docx,
@@ -167,8 +181,9 @@ PARSERS = {
     ".xlsx": _parse_xlsx,
     ".html": _parse_html,
     ".htm": _parse_html,
-    ".png": lambda p: [],  # images handled via OCR pipeline separately
-    ".jpg": lambda p: [],
+    ".png": _parse_image,
+    ".jpg": _parse_image,
+    ".jpeg": _parse_image,
 }
 
 

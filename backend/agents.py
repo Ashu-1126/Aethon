@@ -9,10 +9,7 @@ import json
 import re
 import time
 
-import ollama
-from fastapi import HTTPException
-
-from config import LLM_MODEL
+from config import LLM_MODEL, client
 from embeddings import retrieve, count as vec_count, list_docs
 from graph import relationship_count
 
@@ -71,17 +68,19 @@ def compliance_audit() -> dict:
     )
 
     try:
-        resp = ollama.generate(
+        resp = client.chat.completions.create(
             model=LLM_MODEL,
-            prompt=_COMPLIANCE_PROMPT.format(context=context),
-            format="json",
-            options={"temperature": 0.0, "num_predict": 1024},
+            messages=[{"role": "user", "content": _COMPLIANCE_PROMPT.format(context=context)}],
+            response_format={"type": "json_object"},
+            temperature=0.0,
+            max_tokens=1024,
         )
-        raw = resp["response"].strip()
+        raw = resp.choices[0].message.content.strip()
         result = json.loads(raw)
         if "overall_score" in result and "standards" in result:
             return result
     except Exception as e:
+        from fastapi import HTTPException
         raise HTTPException(status_code=503, detail=f"AI Model Offline or Error: {str(e)}")
 
     raise HTTPException(status_code=503, detail="AI failed to generate valid JSON for compliance audit")
@@ -127,16 +126,18 @@ def detect_conflicts() -> list[dict]:
     )
 
     try:
-        resp = ollama.generate(
+        resp = client.chat.completions.create(
             model=LLM_MODEL,
-            prompt=_CONFLICT_PROMPT.format(context=context),
-            format="json",
-            options={"temperature": 0.0, "num_predict": 512},
+            messages=[{"role": "user", "content": _CONFLICT_PROMPT.format(context=context)}],
+            response_format={"type": "json_object"},
+            temperature=0.0,
+            max_tokens=512,
         )
-        raw = resp["response"].strip()
+        raw = resp.choices[0].message.content.strip()
         result = json.loads(raw)
         return result.get("conflicts", [])
     except Exception as e:
+        from fastapi import HTTPException
         raise HTTPException(status_code=503, detail=f"AI Model Offline or Error: {str(e)}")
 
     raise HTTPException(status_code=503, detail="AI failed to generate valid JSON for conflicts")
@@ -215,10 +216,12 @@ def scoreboard() -> dict:
 # ══════════════════════════════════════════════════════════════════════════
 
 _RCA_PROMPT = """\
-You are an industrial reliability engineer. Analyze the following context from maintenance records and manuals to determine the root cause of failures for {equipment}.
+You are an industrial reliability engineer. Analyze the following context and knowledge graph relationships to determine the root cause of failures for {equipment}.
 
 Context:
 {context}
+
+{graph_context}
 
 Provide a concise, analytical root cause analysis in 2-3 sentences.
 Then estimate a confidence percentage (0-100).
@@ -239,14 +242,19 @@ def root_cause_analysis(equipment: str) -> dict:
         f"[DOC:{c['doc_name']} PAGE:{c['page']}]: {c['text'][:400]}" for c in chunks
     )
 
+    from graph import get_related_graph_context
+    doc_names = list({c["doc_name"] for c in chunks})
+    graph_context = get_related_graph_context(doc_names, equipment)
+
     try:
-        resp = ollama.generate(
+        resp = client.chat.completions.create(
             model=LLM_MODEL,
-            prompt=_RCA_PROMPT.format(equipment=equipment, context=context),
-            format="json",
-            options={"temperature": 0.0, "num_predict": 512},
+            messages=[{"role": "user", "content": _RCA_PROMPT.format(equipment=equipment, context=context, graph_context=graph_context)}],
+            response_format={"type": "json_object"},
+            temperature=0.0,
+            max_tokens=512,
         )
-        raw = resp["response"].strip()
+        raw = resp.choices[0].message.content.strip()
         result = json.loads(raw)
         return {
             "answer": result.get("answer", "Analysis generated."),
@@ -254,6 +262,49 @@ def root_cause_analysis(equipment: str) -> dict:
             "confidence": result.get("confidence", 75)
         }
     except Exception as e:
+        from fastapi import HTTPException
         raise HTTPException(status_code=503, detail=f"AI Model Offline or Error: {str(e)}")
 
     raise HTTPException(status_code=503, detail="AI failed to generate valid JSON for RCA")
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# REWRITE AGENT
+# ══════════════════════════════════════════════════════════════════════════
+
+_REWRITE_PROMPT = """\
+You are an expert compliance officer in industrial operations.
+Rewrite the following non-compliant SOP/procedure clause so that it complies with the referenced regulation and resolves the identified issue.
+
+Non-compliant Clause:
+{clause}
+
+Compliance Issue Identified:
+{issue}
+
+Provide a clean, precise, and compliant replacement clause.
+Return ONLY valid JSON in this exact format:
+{{
+  "rewrite": "Compliance procedures dictate that..."
+}}
+
+JSON:"""
+
+def generate_rewrite(clause: str, issue: str) -> dict:
+    """Ask Llama 3.1 to generate a compliant rewrite of a failing SOP clause."""
+    try:
+        resp = client.chat.completions.create(
+            model=LLM_MODEL,
+            messages=[{"role": "user", "content": _REWRITE_PROMPT.format(clause=clause, issue=issue)}],
+            response_format={"type": "json_object"},
+            temperature=0.1,
+            max_tokens=512,
+        )
+        raw = resp.choices[0].message.content.strip()
+        result = json.loads(raw)
+        return {"rewrite": result.get("rewrite", "Could not generate compliant draft rewrite.")}
+    except Exception as e:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=503, detail=f"AI Model Offline or Error: {str(e)}")
+
+    raise HTTPException(status_code=503, detail="AI failed to generate valid JSON for rewrite")

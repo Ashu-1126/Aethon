@@ -10,7 +10,7 @@ sys.path.append(str(Path(__file__).parent))
 from seed import seed_database
 import embeddings
 from rag import answer
-import ollama
+from config import client, LLM_MODEL
 
 # 20 Benchmark Queries
 BENCHMARK_SET = [
@@ -131,16 +131,17 @@ Example: {{"score": 95}}
 
 JSON:"""
     try:
-        resp = ollama.generate(
-            model="llama3.1:8b",
-            prompt=prompt,
-            format="json",
-            options={"temperature": 0.0, "num_predict": 128}
+        resp = client.chat.completions.create(
+            model=LLM_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"},
+            temperature=0.0,
+            max_tokens=128,
         )
-        data = json.loads(resp["response"])
+        data = json.loads(resp.choices[0].message.content.strip())
         return float(data.get("score", 85.0))
     except Exception:
-        # Graceful fallback if Ollama times out or errors
+        # Graceful fallback if OpenRouter times out or errors
         return 85.0
 
 def run_evaluation():

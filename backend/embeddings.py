@@ -16,9 +16,7 @@ from typing import Any
 
 import chromadb
 from chromadb.config import Settings
-import ollama
-
-from config import CHROMA_PATH, COLLECTION, EMBED_MODEL, RETRIEVAL_K, LLM_MODEL
+from config import CHROMA_PATH, COLLECTION, EMBED_MODEL, RETRIEVAL_K, LLM_MODEL, client
 
 
 # Serializes ChromaDB write operations (upsert/delete). ChromaDB's client is
@@ -41,13 +39,9 @@ _col = _client.get_or_create_collection(
 # ── Embedding ───────────────────────────────────────────────────────────────
 
 def _embed(texts: list[str]) -> list[list[float]]:
-    """Call Ollama nomic-embed-text. Returns list of embedding vectors."""
-    vectors: list[list[float]] = []
-    # Ollama embed endpoint handles one text at a time; batch in loop
-    for text in texts:
-        resp = ollama.embeddings(model=EMBED_MODEL, prompt=text)
-        vectors.append(resp["embedding"])
-    return vectors
+    """Call OpenRouter Embeddings. Returns list of embedding vectors."""
+    resp = client.embeddings.create(model=EMBED_MODEL, input=texts)
+    return [item.embedding for item in resp.data]
 
 
 def _chunk_id(doc_name: str, chunk_index: int) -> str:
@@ -98,13 +92,14 @@ Example output:
 JSON:"""
 
     try:
-        resp = ollama.generate(
+        resp = client.chat.completions.create(
             model=LLM_MODEL,
-            prompt=prompt,
-            format="json",
-            options={"temperature": 0.0, "num_predict": 512}
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"},
+            temperature=0.0,
+            max_tokens=512,
         )
-        raw = resp["response"].strip()
+        raw = resp.choices[0].message.content.strip()
         m = re.search(r"\[.*\]", raw, re.DOTALL)
         if m:
             scores_list = json.loads(m.group())

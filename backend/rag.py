@@ -15,9 +15,7 @@ from __future__ import annotations
 
 import re
 
-import ollama
-
-from config import LLM_MODEL, RETRIEVAL_K
+from config import LLM_MODEL, RETRIEVAL_K, client
 from embeddings import retrieve
 
 
@@ -40,6 +38,8 @@ Rules:
 _USER_PROMPT = """\
 Context chunks (use these to answer):
 {context}
+
+{graph_context}
 
 ---
 Question: {query}
@@ -132,18 +132,24 @@ def answer(query: str, k: int = RETRIEVAL_K) -> dict:
     # 2. Build context
     context = _build_context(hits)
 
+    # Fetch graph context
+    from graph import get_related_graph_context
+    doc_names = list({h["doc_name"] for h in hits})
+    graph_context = get_related_graph_context(doc_names, query)
+
     # 3. Call LLM
     messages = [
         {"role": "system", "content": _SYSTEM_PROMPT},
-        {"role": "user",   "content": _USER_PROMPT.format(context=context, query=query)},
+        {"role": "user",   "content": _USER_PROMPT.format(context=context, graph_context=graph_context, query=query)},
     ]
 
-    resp = ollama.chat(
+    resp = client.chat.completions.create(
         model=LLM_MODEL,
         messages=messages,
-        options={"temperature": 0.1, "num_predict": 1024},
+        temperature=0.1,
+        max_tokens=1024,
     )
-    raw_answer = resp["message"]["content"].strip()
+    raw_answer = resp.choices[0].message.content.strip()
 
     # 4. Parse sources
     sources = _parse_sources(raw_answer, hits)

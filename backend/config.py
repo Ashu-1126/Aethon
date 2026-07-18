@@ -5,10 +5,28 @@ Reads environment variables; falls back to sensible local defaults.
 import os
 from pathlib import Path
 
-# ── Ollama ─────────────────────────────────────────────────────────────────
-OLLAMA_BASE_URL: str = os.getenv("OLLAMA_URL", "http://localhost:11434")
-LLM_MODEL:       str = os.getenv("LLM_MODEL", "llama3.1:8b")
-EMBED_MODEL:     str = os.getenv("EMBED_MODEL", "nomic-embed-text")
+for env_path in [Path(".env"), Path("../.env"), Path(".env.local"), Path("../.env.local")]:
+    if env_path.exists():
+        with open(env_path) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    k = k.strip()
+                    v = v.strip().strip('"').strip("'")
+                    os.environ[k] = v
+
+# ── OpenRouter ─────────────────────────────────────────────────────────────
+OPENROUTER_API_KEY:  str = os.getenv("OPENROUTER_API_KEY", "")
+OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
+LLM_MODEL:           str = os.getenv("LLM_MODEL", "meta-llama/llama-3.1-8b-instruct:free")
+EMBED_MODEL:         str = os.getenv("EMBED_MODEL", "openai/text-embedding-3-small")
+
+from openai import OpenAI
+client = OpenAI(
+    api_key=OPENROUTER_API_KEY,
+    base_url=OPENROUTER_BASE_URL,
+)
 
 # ── ChromaDB ───────────────────────────────────────────────────────────────
 CHROMA_PATH: str = os.getenv("CHROMA_PATH", "./data/chroma")

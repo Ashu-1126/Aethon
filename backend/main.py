@@ -41,6 +41,7 @@ from agents import (
     dashboard_stats as _dashboard_stats,
     scoreboard as _scoreboard,
     root_cause_analysis,
+    generate_rewrite,
 )
 from auth import USERS, create_access_token, get_current_user
 
@@ -88,9 +89,17 @@ def _save_registry() -> None:
     global _registry
     tmp = _DOC_REGISTRY_PATH.with_suffix(".json.tmp")
     with _registry_lock:
-        with open(tmp, "w") as f:
-            json.dump(_registry, f, indent=2)
-        tmp.replace(_DOC_REGISTRY_PATH)
+        try:
+            with open(tmp, "w") as f:
+                json.dump(_registry, f, indent=2)
+            import os
+            os.replace(str(tmp), str(_DOC_REGISTRY_PATH))
+        except Exception:
+            try:
+                with open(_DOC_REGISTRY_PATH, "w") as f:
+                    json.dump(_registry, f, indent=2)
+            except Exception:
+                pass
 
 
 def _patch_registry(doc_id: str, **fields) -> None:
@@ -174,8 +183,8 @@ async def login(req: LoginRequest):
 @app.get("/health")
 async def health():
     try:
-        import ollama
-        ollama.list()
+        from config import client
+        client.with_options(timeout=5.0).models.list()
         model_ok = True
     except Exception:
         model_ok = False
@@ -302,6 +311,8 @@ async def _process_doc(doc_id: str, path: Path, doc_name: str) -> None:
             await _update("indexed", 100)
 
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             _patch_registry(doc_id, status="failed")
             await _broadcast({"id": doc_id, "stage": "failed", "progress": 0, "error": str(e)})
 
@@ -339,6 +350,17 @@ async def get_compliance(user: dict = Depends(get_current_user)):
         raise HTTPException(503, "No documents indexed yet.")
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(None, compliance_audit)
+
+
+class RewriteRequest(BaseModel):
+    clause: str
+    issue: str
+
+
+@app.post("/compliance/rewrite")
+async def post_compliance_rewrite(req: RewriteRequest, user: dict = Depends(get_current_user)):
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, generate_rewrite, req.clause, req.issue)
 
 
 # ══════════════════════════════════════════════════════════════════════════

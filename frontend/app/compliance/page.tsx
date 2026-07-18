@@ -42,6 +42,107 @@ function barColor(score: number) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+function GapItem({ g, i }: { g: { clause: string; issue: string }; i: number }) {
+  const [rewrite, setRewrite] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const severities = ["CRITICAL", "MAJOR", "MINOR"];
+  const colors = [
+    "bg-danger/10 text-danger border-danger/30 shadow-[0_0_8px_rgba(239,68,68,0.2)]", 
+    "bg-gold/10 text-goldGlow border-gold/30", 
+    "bg-teal/10 text-tealGlow border-teal/30"
+  ];
+  const docs = ["SOP-Env-401.pdf", "Safety-Manual-v2.docx", "Maintenance-Log-Q3.xlsx", "Confined_Space_Protocol.pdf"];
+  const sevIdx = i % 3;
+
+  async function handleRewrite() {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await compliance.rewrite(g.clause, g.issue);
+      setRewrite(res.rewrite);
+    } catch (e: any) {
+      setError(e.message || "Failed to generate rewrite");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <li className="flex flex-col gap-2 text-xs border-b border-white/5 pb-4 last:border-0 last:pb-0">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className={`chip border ${colors[sevIdx]} font-bold tracking-wider text-[9px]`}>
+            {severities[sevIdx]}
+          </span>
+          <span className="chip border-white/10 bg-white/5 text-text">
+            {g.clause}
+          </span>
+        </div>
+        <button
+          onClick={handleRewrite}
+          disabled={loading}
+          className="flex items-center gap-1.5 rounded-lg border border-teal/20 bg-teal/10 px-2 py-1 text-[10px] font-medium text-tealGlow transition-colors hover:bg-teal/20 disabled:opacity-40"
+        >
+          {loading ? (
+            <span className="flex items-center gap-1">
+              <Loader2 className="h-3 w-3 animate-spin" /> Generating...
+            </span>
+          ) : (
+            <span>✨ Generate Compliant Rewrite</span>
+          )}
+        </button>
+      </div>
+      <p className="pl-1 text-muted leading-relaxed">{g.issue}</p>
+      <div className="pl-1 mt-1 flex items-center gap-1.5 text-[10px]">
+        <FileText className="h-3 w-3 text-muted/60" />
+        <span className="text-muted/60">Failed Document:</span>
+        <a href="#" className="text-tealGlow hover:underline">{docs[i % docs.length]} - Page {i + 4}</a>
+      </div>
+
+      <AnimatePresence>
+        {rewrite && (
+          <motion.div
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="mt-3 rounded-lg border border-teal/20 bg-teal/5 p-3 text-xs"
+          >
+            <p className="font-semibold text-tealGlow mb-1">Suggested Rewrite:</p>
+            <p className="text-text leading-relaxed font-mono select-all bg-base/50 p-2 rounded border border-white/5">{rewrite}</p>
+            <div className="mt-2 flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(rewrite);
+                }}
+                className="rounded border border-teal/30 bg-teal/10 px-2 py-0.5 text-[10px] text-tealGlow transition-colors hover:bg-teal/20"
+              >
+                Copy to Clipboard
+              </button>
+              <button
+                onClick={() => setRewrite(null)}
+                className="rounded border border-border bg-base px-2 py-0.5 text-[10px] text-muted transition-colors hover:text-text"
+              >
+                Close
+              </button>
+            </div>
+          </motion.div>
+        )}
+        {error && (
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-danger pl-1 mt-1 text-[10px]"
+          >
+            ⚠️ {error}
+          </motion.p>
+        )}
+      </AnimatePresence>
+    </li>
+  );
+}
+
 function StandardCard({ s }: { s: ComplianceResult }) {
   const [open, setOpen] = useState(false);
   return (
@@ -93,39 +194,9 @@ function StandardCard({ s }: { s: ComplianceResult }) {
                 </p>
               ) : (
                 <ul className="space-y-4">
-                  {s.gaps.map((g, i) => {
-                    const severities = ["CRITICAL", "MAJOR", "MINOR"];
-                    const colors = [
-                      "bg-danger/10 text-danger border-danger/30 shadow-[0_0_8px_rgba(239,68,68,0.2)]", 
-                      "bg-gold/10 text-goldGlow border-gold/30", 
-                      "bg-teal/10 text-tealGlow border-teal/30"
-                    ];
-                    const docs = ["SOP-Env-401.pdf", "Safety-Manual-v2.docx", "Maintenance-Log-Q3.xlsx", "Confined_Space_Protocol.pdf"];
-                    const sevIdx = i % 3;
-                    return (
-                      <li key={i} className="flex flex-col gap-2 text-xs border-b border-white/5 pb-4 last:border-0 last:pb-0">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <span className={`chip border ${colors[sevIdx]} font-bold tracking-wider text-[9px]`}>
-                              {severities[sevIdx]}
-                            </span>
-                            <span className="chip border-white/10 bg-white/5 text-text">
-                              {g.clause}
-                            </span>
-                          </div>
-                          <button className="flex items-center gap-1.5 rounded-lg border border-teal/20 bg-teal/10 px-2 py-1 text-[10px] font-medium text-tealGlow transition-colors hover:bg-teal/20">
-                            <span>✨ Generate Compliant Rewrite</span>
-                          </button>
-                        </div>
-                        <p className="pl-1 text-muted leading-relaxed">{g.issue}</p>
-                        <div className="pl-1 mt-1 flex items-center gap-1.5 text-[10px]">
-                          <FileText className="h-3 w-3 text-muted/60" />
-                          <span className="text-muted/60">Failed Document:</span>
-                          <a href="#" className="text-tealGlow hover:underline">{docs[i % docs.length]} - Page {i + 4}</a>
-                        </div>
-                      </li>
-                    );
-                  })}
+                  {s.gaps.map((g, i) => (
+                    <GapItem key={i} g={g} i={i} />
+                  ))}
                 </ul>
               )}
             </div>

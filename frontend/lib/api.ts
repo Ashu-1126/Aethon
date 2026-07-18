@@ -134,6 +134,16 @@ export const graph = {
 export const compliance = {
   audit: (): Promise<ComplianceAudit> =>
     USE_MOCK ? mock.compliance() : apiFetch<ComplianceAudit>("/compliance/audit"),
+
+  rewrite: async (clause: string, issue: string): Promise<{ rewrite: string }> => {
+    if (USE_MOCK) {
+      return { rewrite: "Compliant SOP rewrite: Ensure continuous atmospheric testing of confined spaces is performed and recorded at intervals not exceeding 30 minutes, or as otherwise mandated by the safety supervisor." };
+    }
+    return apiFetch<{ rewrite: string }>("/compliance/rewrite", {
+      method: "POST",
+      body: JSON.stringify({ clause, issue }),
+    });
+  },
 };
 
 export const conflicts = {
