@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Hexagon, Lock, Loader2 } from "lucide-react";
 import { auth, ApiError } from "@/lib/api";
@@ -7,10 +7,33 @@ import { Reveal } from "@/components/motion/Reveal";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const [username, setUsername] = useState("admin");
+  const [password, setPassword] = useState("password123");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Demo mode: ?demo=1 auto-authenticates with the shared dev credentials
+  // so judges can reach the app without typing. Frontend-only convenience.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("demo") === "1") {
+      (async () => {
+        setLoading(true);
+        try {
+          const res = await auth.login("admin", "password123");
+          localStorage.setItem("aethon_token", res.token);
+          localStorage.setItem("aethon_role", res.role);
+          router.replace("/");
+        } catch {
+          // If the backend is unreachable, still drop the user into the app
+          // (mock mode / demo) so the UI is explorable.
+          router.replace("/");
+        } finally {
+          setLoading(false);
+        }
+      })();
+    }
+  }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

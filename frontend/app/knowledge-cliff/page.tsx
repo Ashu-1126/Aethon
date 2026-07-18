@@ -4,7 +4,7 @@ import { PageContainer } from "@/components/layout/PageContainer";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion/Reveal";
 import { TiltCard } from "@/components/motion/TiltCard";
 import { motion, AnimatePresence } from "framer-motion";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Brain,
   CheckCircle2,
@@ -76,12 +76,40 @@ const STATS = [
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
+const STORAGE_KEY = "aethon_knowledge_capture";
+
 export default function KnowledgeCliffPage() {
   const [answers, setAnswers] = useState<Answers>({});
   const [step, setStep] = useState<"intro" | "interview" | "saving" | "done">("intro");
   const [activeQ, setActiveQ] = useState(0);
   const [engineerName, setEngineerName] = useState("");
   const textRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
+
+  // Restore any in-progress capture from a previous session (frontend-only).
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw) as { answers?: Answers; engineerName?: string };
+        if (saved.answers) setAnswers(saved.answers);
+        if (saved.engineerName) setEngineerName(saved.engineerName);
+      }
+    } catch {
+      /* ignore malformed storage */
+    }
+  }, []);
+
+  // Persist progress whenever answers / name change.
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ answers, engineerName })
+      );
+    } catch {
+      /* storage may be unavailable (private mode) — non-fatal */
+    }
+  }, [answers, engineerName]);
 
   const allAnswered = QUESTIONS.every(
     (q) => (answers[q.id] ?? "").trim().length > 10
@@ -409,6 +437,11 @@ export default function KnowledgeCliffPage() {
               <div className="flex gap-3">
                 <button
                   onClick={() => {
+                    try {
+                      localStorage.removeItem(STORAGE_KEY);
+                    } catch {
+                      /* non-fatal */
+                    }
                     setStep("intro");
                     setAnswers({});
                     setActiveQ(0);

@@ -19,6 +19,7 @@ import {
   Lock,
   Menu,
   X,
+  GitCompareArrows,
 } from "lucide-react";
 import { health } from "@/lib/api";
 import { ApiError } from "@/lib/api";
@@ -30,6 +31,7 @@ const nav = [
   { href: "/knowledge-graph",   label: "Knowledge Graph",   icon: Share2 },
   { href: "/rca",               label: "Maintenance & RCA", icon: Wrench },
   { href: "/compliance",        label: "Compliance",        icon: ShieldCheck },
+  { href: "/conflicts",         label: "Conflicts",         icon: GitCompareArrows },
   { href: "/knowledge-cliff",   label: "Knowledge Cliff",   icon: Brain },
   { href: "/upload",            label: "Documents",         icon: UploadCloud },
   { href: "/integrations",      label: "Integrations",      icon: Cable },

@@ -16,6 +16,14 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    // Demo bypass: ?demo=1 skips the token check so judges can explore
+    // the full app without manually authenticating. Frontend-only.
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("demo") === "1") {
+      setAuthorized(true);
+      return;
+    }
+
     const token = localStorage.getItem("aethon_token");
     if (!token) {
       router.replace("/login");

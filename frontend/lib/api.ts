@@ -165,7 +165,7 @@ export const scoreboard = {
 
 export const rca = {
   get: (equipment: string): Promise<RcaResult> =>
-    USE_MOCK ? mock.query(equipment) as any : apiFetch<RcaResult>(`/rca/${encodeURIComponent(equipment)}`),
+    USE_MOCK ? mock.rca(equipment) : apiFetch<RcaResult>(`/rca/${encodeURIComponent(equipment)}`),
 };
 
 export const WS_BASE =

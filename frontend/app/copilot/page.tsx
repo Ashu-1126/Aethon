@@ -284,6 +284,7 @@ export default function Copilot() {
                           ? "glass border-danger/30 bg-danger/5 p-4 text-sm leading-relaxed"
                           : "glass-glow border-teal/20 p-4 text-sm leading-relaxed"
                     }`}
+                    aria-live={m.role === "ai" ? "polite" : undefined}
                   >
                     <p>{m.text}</p>
                     {m.sources && m.sources.length > 0 && (
@@ -328,6 +329,8 @@ export default function Copilot() {
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
+                role="status"
+                aria-live="polite"
                 className="flex items-center gap-3"
               >
                 <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-teal/30 bg-teal/10 text-tealGlow">

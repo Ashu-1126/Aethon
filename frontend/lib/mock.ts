@@ -12,6 +12,7 @@ import type {
   DashboardStats,
   Scoreboard,
   HealthStatus,
+  Source,
 } from "./types";
 
 const delay = <T>(data: T, ms = 600): Promise<T> =>
@@ -120,6 +121,31 @@ export const mockScoreboard: Scoreboard = {
   questions_evaluated: 20,
 };
 
+// RCA returns the same {answer, sources, confidence} shape the RCA page expects
+// (NOT the copilot-shaped QueryResponse). Keyed by equipment id/name.
+const mockRca: Record<string, { answer: string; sources: Source[]; confidence: number }> = {
+  default: {
+    answer:
+      "Bearing failures on Pump P-204 correlate with a lubrication-interval deviation logged across 3 work orders. Root cause: procedure MP-12 specifies a 90-day interval, but the OEM manual mandates 60 days — the resulting under-lubrication accelerates bearing wear and thermal runaway.",
+    sources: [
+      { doc_name: "WorkOrder_log.xlsx", page: 1, snippet: "P-204 bearing replaced — 3rd occurrence this year." },
+      { doc_name: "OEM_Pump_Manual.pdf", page: 7, snippet: "Re-lubricate bearings every 60 days under continuous duty." },
+      { doc_name: "MP-12.docx", page: 2, snippet: "Lubrication interval: 90 days." },
+    ],
+    confidence: 89,
+  },
+};
+
+export const mockRcaFor = (equipment: string) => {
+  const lc = equipment.toLowerCase();
+  if (lc.includes("p-204") || lc.includes("pump")) return mockRca.default;
+  return {
+    answer: `No specific failure history was found for "${equipment}" in the indexed work orders. Recommend reviewing its maintenance log and OEM manual for recurring signatures.`,
+    sources: [],
+    confidence: 60,
+  };
+};
+
 // Async wrappers (mirror the api.ts surface)
 export const mock = {
   health: () => delay(mockHealth, 200),
@@ -139,4 +165,5 @@ export const mock = {
   conflicts: () => delay(mockConflicts),
   dashboard: () => delay(mockDashboard),
   scoreboard: () => delay(mockScoreboard),
+  rca: (equipment: string) => delay(mockRcaFor(equipment)),
 };
