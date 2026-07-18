@@ -11,13 +11,20 @@ Wraps ChromaDB with:
 from __future__ import annotations
 
 import hashlib
+import threading
 from typing import Any
 
 import chromadb
 from chromadb.config import Settings
 import ollama
 
-from config import CHROMA_PATH, COLLECTION, EMBED_MODEL, RETRIEVAL_K
+from config import CHROMA_PATH, COLLECTION, EMBED_MODEL, RETRIEVAL_K, LLM_MODEL
+
+
+# Serializes ChromaDB write operations (upsert/delete). ChromaDB's client is
+# shared process-wide, so concurrent writes from multiple ingestion tasks can
+# collide; this lock makes them safe.
+_write_lock = threading.Lock()
 
 
 # ── ChromaDB client (persistent, local) ────────────────────────────────────
@@ -48,6 +55,75 @@ def _chunk_id(doc_name: str, chunk_index: int) -> str:
     return hashlib.md5(raw.encode()).hexdigest()
 
 
+# ── Reranking ───────────────────────────────────────────────────────────────
+
+def _llm_rerank(query: str, hits: list[dict], k: int) -> list[dict]:
+    """
+    Reranks hits based on query using llama3.1:8b zero-shot scoring.
+    """
+    import json
+    import re
+
+    # We format a clean list of candidates for the LLM to score
+    candidates = []
+    for idx, hit in enumerate(hits):
+        candidates.append(
+            f"Passage [{idx}]:\n"
+            f"Document: {hit['doc_name']}, Page: {hit['page']}\n"
+            f"Content: {hit['text'][:350]}\n"
+        )
+
+    sep = "\n" + "="*40 + "\n"
+    prompt = f"""You are a precise search result reranking assistant for industrial plant operations.
+Analyze the following retrieved passage candidates and determine their relevance to the user query.
+For each passage, assign a relevance score between 0 and 100, where:
+- 100 means the passage contains the exact and complete answer to the query.
+- 0 means the passage is completely irrelevant to the query.
+
+User Query: {query}
+
+Passage Candidates:
+{"="*40}
+{sep.join(candidates)}
+{"="*40}
+
+Output your analysis strictly as a JSON array of objects, where each object has "index" (integer) and "score" (number from 0 to 100). Do not include any explanations or extra text.
+
+Example output:
+[
+  {{"index": 0, "score": 92.5}},
+  {{"index": 1, "score": 34.0}}
+]
+
+JSON:"""
+
+    try:
+        resp = ollama.generate(
+            model=LLM_MODEL,
+            prompt=prompt,
+            format="json",
+            options={"temperature": 0.0, "num_predict": 512}
+        )
+        raw = resp["response"].strip()
+        m = re.search(r"\[.*\]", raw, re.DOTALL)
+        if m:
+            scores_list = json.loads(m.group())
+            # Map new scores back to hits
+            for item in scores_list:
+                idx = int(item.get("index", -1))
+                score = float(item.get("score", 0.0))
+                if 0 <= idx < len(hits):
+                    hits[idx]["score"] = score
+
+            # Re-sort hits by their new reranked score
+            hits.sort(key=lambda x: x["score"], reverse=True)
+    except Exception as e:
+        # If reranking fails for any reason (e.g. timeout, formatting), fallback gracefully to vector scores
+        print(f"[Reranker Warning] LLM reranking failed: {e}. Falling back to vector store scores.")
+
+    return hits[:k]
+
+
 # ── Public API ───────────────────────────────────────────────────────────────
 
 def embed_and_store(chunks: list[dict]) -> int:
@@ -73,27 +149,30 @@ def embed_and_store(chunks: list[dict]) -> int:
     # Embed in one pass (batch)
     vectors = _embed(texts)
 
-    _col.upsert(
-        ids=ids,
-        embeddings=vectors,
-        documents=texts,
-        metadatas=metadatas,
-    )
+    with _write_lock:
+        _col.upsert(
+            ids=ids,
+            embeddings=vectors,
+            documents=texts,
+            metadatas=metadatas,
+        )
     return len(chunks)
 
 
-def retrieve(query: str, k: int = RETRIEVAL_K) -> list[dict]:
+def retrieve(query: str, k: int = RETRIEVAL_K, rerank: bool = True) -> list[dict]:
     """
-    Semantic search.  Returns top-k chunks sorted by relevance.
+    Semantic search. Returns top-k chunks sorted by relevance, with optional LLM reranking.
     Each result: {text, doc_name, page, doc_type, score}
     """
     if _col.count() == 0:
         return []
-        
+    # If reranking, retrieve more candidates first
+    retrieve_k = min(2 * k, _col.count()) if rerank else min(k, _col.count())
+
     vec = _embed([query])[0]
     results = _col.query(
         query_embeddings=[vec],
-        n_results=min(k, _col.count()),
+        n_results=retrieve_k,
         include=["documents", "metadatas", "distances"],
     )
 
@@ -114,7 +193,11 @@ def retrieve(query: str, k: int = RETRIEVAL_K) -> list[dict]:
                 "score":    score,
             }
         )
-    return hits
+
+    if rerank and len(hits) > 1:
+        return _llm_rerank(query, hits, k)
+
+    return hits[:k]
 
 
 def delete_doc(doc_name: str) -> int:
@@ -123,7 +206,8 @@ def delete_doc(doc_name: str) -> int:
     existing = _col.get(where=where, include=[])
     ids = existing["ids"]
     if ids:
-        _col.delete(ids=ids)
+        with _write_lock:
+            _col.delete(ids=ids)
     return len(ids)
 
 

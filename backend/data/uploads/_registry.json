@@ -1,23 +1,184 @@
 {
-  "e40ffb5c": {
-    "name": "orvanto master guide.pdf",
-    "type": "document",
+  "45a89008": {
+    "name": "DGMS_Circular_2019.pdf",
+    "type": "regulation",
     "status": "indexed",
-    "pages": 0,
-    "ingested_at": "2026-07-14T12:07:25Z"
+    "pages": 1,
+    "ingested_at": "2026-07-17T14:38:14Z"
   },
-  "6013938d": {
-    "name": "orvanto master guide.pdf",
-    "type": "document",
+  "1ac5ff9d": {
+    "name": "Factory_Act_1948.pdf",
+    "type": "regulation",
     "status": "indexed",
-    "pages": 0,
-    "ingested_at": "2026-07-14T12:10:32Z"
+    "pages": 64,
+    "ingested_at": "2026-07-17T14:59:09Z"
   },
-  "3cb3c2be": {
-    "name": "Orvanto_Product_Walkthrough.html",
+  "124e9700": {
+    "name": "MP-12.pdf",
     "type": "document",
+    "status": "failed",
+    "pages": 0,
+    "ingested_at": "2026-07-17T14:59:11Z"
+  },
+  "b10eae6c": {
+    "name": "OEM_Pump_Manual.pdf",
+    "type": "manual",
+    "status": "failed",
+    "pages": 0,
+    "ingested_at": "2026-07-17T14:59:13Z"
+  },
+  "bd1bde01": {
+    "name": "OISD-105.pdf",
+    "type": "regulation",
+    "status": "failed",
+    "pages": 0,
+    "ingested_at": "2026-07-17T14:59:16Z"
+  },
+  "8878d9f3": {
+    "name": "OISD-116.pdf",
+    "type": "regulation",
+    "status": "failed",
+    "pages": 0,
+    "ingested_at": "2026-07-17T14:59:18Z"
+  },
+  "aef09217": {
+    "name": "PESO_Rule_14.pdf",
+    "type": "regulation",
+    "status": "failed",
+    "pages": 0,
+    "ingested_at": "2026-07-17T14:59:20Z"
+  },
+  "f25a49e2": {
+    "name": "SOP-44.pdf",
+    "type": "procedure",
+    "status": "failed",
+    "pages": 0,
+    "ingested_at": "2026-07-17T14:59:22Z"
+  },
+  "be9c740f": {
+    "name": "WorkOrder_log.pdf",
+    "type": "document",
+    "status": "failed",
+    "pages": 0,
+    "ingested_at": "2026-07-17T14:59:24Z"
+  },
+  "53c3f978": {
+    "name": "verify_doc_02.txt",
+    "type": "document",
+    "status": "failed",
+    "pages": 1,
+    "ingested_at": "2026-07-17T15:06:48Z"
+  },
+  "eb0e2d53": {
+    "name": "verify_doc_06.txt",
+    "type": "document",
+    "status": "failed",
+    "pages": 1,
+    "ingested_at": "2026-07-17T15:06:48Z"
+  },
+  "2e3bd080": {
+    "name": "verify_doc_00.txt",
+    "type": "document",
+    "status": "failed",
+    "pages": 1,
+    "ingested_at": "2026-07-17T15:06:48Z"
+  },
+  "bea726f8": {
+    "name": "verify_doc_03.txt",
+    "type": "document",
+    "status": "failed",
+    "pages": 1,
+    "ingested_at": "2026-07-17T15:06:48Z"
+  },
+  "82758d46": {
+    "name": "verify_doc_05.txt",
+    "type": "document",
+    "status": "failed",
+    "pages": 1,
+    "ingested_at": "2026-07-17T15:06:48Z"
+  },
+  "b0945668": {
+    "name": "verify_doc_01.txt",
+    "type": "document",
+    "status": "failed",
+    "pages": 1,
+    "ingested_at": "2026-07-17T15:06:48Z"
+  },
+  "9af4c16b": {
+    "name": "verify_doc_04.txt",
+    "type": "document",
+    "status": "failed",
+    "pages": 1,
+    "ingested_at": "2026-07-17T15:06:48Z"
+  },
+  "a86c56ea": {
+    "name": "verify_doc_07.txt",
+    "type": "document",
+    "status": "failed",
+    "pages": 1,
+    "ingested_at": "2026-07-17T15:06:48Z"
+  },
+  "6ad71a4b": {
+    "name": "verify_doc_00.txt",
+    "type": "document",
+    "status": "failed",
+    "pages": 1,
+    "ingested_at": "2026-07-17T15:07:39Z"
+  },
+  "4d4e4a6b": {
+    "name": "verify_doc_05.txt",
+    "type": "document",
+    "status": "failed",
+    "pages": 1,
+    "ingested_at": "2026-07-17T15:07:39Z"
+  },
+  "274b0f41": {
+    "name": "verify_doc_01.txt",
+    "type": "document",
+    "status": "failed",
+    "pages": 1,
+    "ingested_at": "2026-07-17T15:07:39Z"
+  },
+  "012bbd96": {
+    "name": "verify_doc_07.txt",
+    "type": "document",
+    "status": "failed",
+    "pages": 1,
+    "ingested_at": "2026-07-17T15:07:39Z"
+  },
+  "f9c14189": {
+    "name": "verify_doc_03.txt",
+    "type": "document",
+    "status": "failed",
+    "pages": 1,
+    "ingested_at": "2026-07-17T15:07:39Z"
+  },
+  "e7a60e83": {
+    "name": "verify_doc_02.txt",
+    "type": "document",
+    "status": "failed",
+    "pages": 1,
+    "ingested_at": "2026-07-17T15:07:39Z"
+  },
+  "4b6fce4e": {
+    "name": "verify_doc_04.txt",
+    "type": "document",
+    "status": "failed",
+    "pages": 1,
+    "ingested_at": "2026-07-17T15:07:39Z"
+  },
+  "b8d24491": {
+    "name": "verify_doc_06.txt",
+    "type": "document",
+    "status": "failed",
+    "pages": 1,
+    "ingested_at": "2026-07-17T15:07:39Z"
+  },
+  "230c29ce": {
+    "name": "OEM_Pump_Manual.pdf",
+    "type": "manual",
     "status": "indexed",
-    "pages": 17,
-    "ingested_at": "2026-07-14T12:59:43Z"
+    "pages": 1,
+    "ingested_at": "2026-07-17T16:09:15Z"
   }
 }

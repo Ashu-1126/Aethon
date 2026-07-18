@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import re
 import sqlite3
+import threading
 import uuid
 from contextlib import contextmanager
 from typing import Optional
@@ -21,12 +22,17 @@ import ollama
 
 from config import GRAPH_DB_PATH, LLM_MODEL
 
+# Serializes graph writes. SQLite is opened with a busy_timeout so concurrent
+# connections wait instead of raising "database is locked", and this lock keeps
+# multi-statement transactions (node + edge upserts) atomic.
+_write_lock = threading.Lock()
+
 
 # ── DB setup ────────────────────────────────────────────────────────────────
 
 @contextmanager
 def _conn():
-    con = sqlite3.connect(GRAPH_DB_PATH)
+    con = sqlite3.connect(GRAPH_DB_PATH, timeout=30)
     con.row_factory = sqlite3.Row
     try:
         yield con
@@ -155,34 +161,35 @@ def add_chunks_to_graph(chunks: list[dict]) -> int:
     sampled = chunks[::3][:20]
     nodes_added = 0
 
-    with _conn() as con:
-        for chunk in sampled:
-            doc_name = chunk["doc_name"]
-            extracted = _extract_entities_from_chunk(chunk["text"], doc_name)
+    with _write_lock:
+        with _conn() as con:
+            for chunk in sampled:
+                doc_name = chunk["doc_name"]
+                extracted = _extract_entities_from_chunk(chunk["text"], doc_name)
 
-            # Upsert entities
-            label_to_id: dict[str, str] = {}
-            for ent in extracted.get("entities", []):
-                label = ent.get("label", "").strip()
-                etype = ent.get("type", "document")
-                if label:
-                    nid = _upsert_node(con, label, etype, doc_name)
-                    label_to_id[label] = nid
-                    nodes_added += 1
+                # Upsert entities
+                label_to_id: dict[str, str] = {}
+                for ent in extracted.get("entities", []):
+                    label = ent.get("label", "").strip()
+                    etype = ent.get("type", "document")
+                    if label:
+                        nid = _upsert_node(con, label, etype, doc_name)
+                        label_to_id[label] = nid
+                        nodes_added += 1
 
-            # Upsert relations
-            for rel in extracted.get("relations", []):
-                from_label = rel.get("from", "").strip()
-                to_label   = rel.get("to", "").strip()
-                relation   = rel.get("relation", "references")
-                if from_label in label_to_id and to_label in label_to_id:
-                    _upsert_edge(
-                        con,
-                        label_to_id[from_label],
-                        label_to_id[to_label],
-                        relation,
-                        doc_name,
-                    )
+                # Upsert relations
+                for rel in extracted.get("relations", []):
+                    from_label = rel.get("from", "").strip()
+                    to_label   = rel.get("to", "").strip()
+                    relation   = rel.get("relation", "references")
+                    if from_label in label_to_id and to_label in label_to_id:
+                        _upsert_edge(
+                            con,
+                            label_to_id[from_label],
+                            label_to_id[to_label],
+                            relation,
+                            doc_name,
+                        )
 
     return nodes_added
 
@@ -214,15 +221,16 @@ def get_graph() -> dict:
 
 def delete_doc_from_graph(doc_name: str) -> None:
     init_db()
-    with _conn() as con:
-        # Get node IDs for this doc
-        ids = [r["id"] for r in con.execute(
-            "SELECT id FROM nodes WHERE doc_name=?", (doc_name,)
-        ).fetchall()]
-        if ids:
-            placeholders = ",".join("?" * len(ids))
-            con.execute(f"DELETE FROM edges WHERE from_id IN ({placeholders}) OR to_id IN ({placeholders})", ids + ids)
-            con.execute(f"DELETE FROM nodes WHERE id IN ({placeholders})", ids)
+    with _write_lock:
+        with _conn() as con:
+            # Get node IDs for this doc
+            ids = [r["id"] for r in con.execute(
+                "SELECT id FROM nodes WHERE doc_name=?", (doc_name,)
+            ).fetchall()]
+            if ids:
+                placeholders = ",".join("?" * len(ids))
+                con.execute(f"DELETE FROM edges WHERE from_id IN ({placeholders}) OR to_id IN ({placeholders})", ids + ids)
+                con.execute(f"DELETE FROM nodes WHERE id IN ({placeholders})", ids)
 
 
 def relationship_count() -> int:

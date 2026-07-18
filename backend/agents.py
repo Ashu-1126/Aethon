@@ -184,6 +184,23 @@ def dashboard_stats() -> dict:
 
 def scoreboard() -> dict:
     """Return benchmark metrics. Real values once we run eval set."""
+    from pathlib import Path
+    
+    # Try finding scoreboard.json in multiple locations
+    possible_paths = [
+        Path("data/scoreboard.json"),
+        Path("backend/data/scoreboard.json"),
+        Path(__file__).parent / "data" / "scoreboard.json",
+    ]
+    
+    for p in possible_paths:
+        if p.exists():
+            try:
+                with open(p, "r") as f:
+                    return json.load(f)
+            except Exception:
+                pass
+                
     return {
         "answer_accuracy":          91,
         "citation_precision":       94,
