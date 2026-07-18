@@ -173,5 +173,12 @@
     "status": "failed",
     "pages": 1,
     "ingested_at": "2026-07-17T15:07:39Z"
+  },
+  "230c29ce": {
+    "name": "OEM_Pump_Manual.pdf",
+    "type": "manual",
+    "status": "indexed",
+    "pages": 1,
+    "ingested_at": "2026-07-17T16:09:15Z"
   }
 }

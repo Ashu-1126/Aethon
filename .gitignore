@@ -36,9 +36,12 @@ next-env.d.ts
 # markdown
 task.md
 
+# text files
+*.txt
+
 # cloudflare & opennext
 .open-next/
 .wrangler/
 
 # ingested/uploaded documents (runtime data, not source)
-data/uploads/
+data/uploads/
