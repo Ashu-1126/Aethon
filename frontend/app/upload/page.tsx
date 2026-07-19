@@ -5,7 +5,7 @@ import { Reveal } from "@/components/motion/Reveal";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useRef, useState, useCallback } from "react";
-import { UploadCloud, FileText, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { UploadCloud, FileText, CheckCircle2, XCircle, Loader2, Trash2 } from "lucide-react";
 import { documents, ApiError, IS_MOCK } from "@/lib/api";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import type { Document, DocStatus, IngestProgress } from "@/lib/types";
@@ -242,13 +242,32 @@ export default function UploadPage() {
                       <span className="truncate">{d.name}</span>
                       <span className="flex-none font-mono text-[10px] text-muted">{d.pages}p</span>
                     </div>
-                    <span
-                      className={`chip flex-none ${
-                        d.status === "indexed" ? "" : "border-gold/20 bg-gold/10 text-goldGlow"
-                      }`}
-                    >
-                      {stageLabel[d.status]}
-                    </span>
+                    <div className="flex items-center gap-3 flex-none">
+                      <span
+                        className={`chip ${
+                          d.status === "indexed" ? "" : "border-gold/20 bg-gold/10 text-goldGlow"
+                        }`}
+                      >
+                        {stageLabel[d.status]}
+                      </span>
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          if (confirm(`Are you sure you want to delete "${d.name}"?`)) {
+                            try {
+                              await documents.delete(d.id);
+                              await refreshDocs();
+                            } catch {
+                              alert("Failed to delete document");
+                            }
+                          }
+                        }}
+                        className="p-1 text-muted hover:text-danger rounded-lg hover:bg-danger/10 transition-colors"
+                        title="Delete Document"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

@@ -38,6 +38,9 @@ from graph import (
     update_document_status_in_db,
     get_documents_from_db,
     delete_document_from_db,
+    add_chat_log,
+    get_chat_history,
+    clear_chat_history,
 )
 from agents import (
     compliance_audit,
@@ -170,7 +173,29 @@ async def copilot_query(req: QueryRequest, user: dict = Depends(get_current_user
     from rag import answer as rag_answer
     loop = asyncio.get_running_loop()
     result = await loop.run_in_executor(None, rag_answer, req.query)
+    
+    # Persist chat log in DB with sources and confidence
+    add_chat_log(
+        user["username"],
+        req.query,
+        result.get("answer", ""),
+        sources=result.get("sources", []),
+        confidence=result.get("confidence", 0)
+    )
+    
     return result
+
+
+@app.get("/copilot/history")
+async def get_history(user: dict = Depends(get_current_user)):
+    history = get_chat_history(user["username"])
+    return {"history": history}
+
+
+@app.delete("/copilot/history")
+async def clear_history(user: dict = Depends(get_current_user)):
+    clear_chat_history(user["username"])
+    return {"status": "success", "message": "Chat history cleared successfully"}
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -180,6 +205,34 @@ async def copilot_query(req: QueryRequest, user: dict = Depends(get_current_user
 async def get_documents(user: dict = Depends(get_current_user)):
     docs = get_documents_from_db()
     return {"documents": docs}
+
+
+@app.delete("/documents/{doc_id}")
+async def delete_document(doc_id: str, user: dict = Depends(get_current_user)):
+    import sqlite3
+    from config import GRAPH_DB_PATH
+    con = sqlite3.connect(GRAPH_DB_PATH)
+    row = con.execute("SELECT name FROM documents WHERE id=?", (doc_id,)).fetchone()
+    con.close()
+    if not row:
+        raise HTTPException(status_code=404, detail="Document not found")
+    doc_name = row[0]
+
+    # 1. Delete vectors from ChromaDB
+    delete_doc(doc_name)
+
+    # 2. Delete from Graph & Document DB
+    delete_doc_from_graph(doc_name)
+    delete_document_from_db(doc_id)
+
+    # 3. Delete file from local storage
+    try:
+        for p in UPLOAD_DIR.glob(f"{doc_id}_*"):
+            p.unlink()
+    except Exception:
+        pass
+
+    return {"status": "success", "message": f"Document '{doc_name}' deleted successfully"}
 
 
 # ══════════════════════════════════════════════════════════════════════════

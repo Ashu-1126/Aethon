@@ -69,9 +69,27 @@ def init_db() -> None:
                 pages       INTEGER DEFAULT 0,
                 ingested_at TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS chat_history (
+                id         TEXT PRIMARY KEY,
+                username   TEXT NOT NULL,
+                message    TEXT NOT NULL,
+                response   TEXT NOT NULL,
+                sources    TEXT,
+                confidence INTEGER DEFAULT 0,
+                timestamp  TEXT NOT NULL
+            );
             CREATE INDEX IF NOT EXISTS idx_edge_from ON edges(from_id);
             CREATE INDEX IF NOT EXISTS idx_edge_to   ON edges(to_id);
         """)
+        # Migration for existing databases
+        try:
+            con.execute("ALTER TABLE chat_history ADD COLUMN sources TEXT")
+        except Exception:
+            pass
+        try:
+            con.execute("ALTER TABLE chat_history ADD COLUMN confidence INTEGER DEFAULT 0")
+        except Exception:
+            pass
 
 
 def add_document_to_db(doc_id: str, name: str, doc_type: str, status: str, pages: int, ingested_at: str) -> None:
@@ -386,3 +404,45 @@ def relationship_count() -> int:
     init_db()
     with _conn() as con:
         return con.execute("SELECT COUNT(*) FROM edges").fetchone()[0]
+
+
+def add_chat_log(username: str, message: str, response: str, sources: list = None, confidence: int = 0) -> None:
+    import time
+    import json
+    init_db()
+    with _conn() as con:
+        sources_json = json.dumps(sources) if sources else "[]"
+        con.execute(
+            "INSERT OR REPLACE INTO chat_history (id, username, message, response, sources, confidence, timestamp) VALUES (?,?,?,?,?,?,?)",
+            (str(uuid.uuid4()), username, message, response, sources_json, confidence, time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
+        )
+
+
+def get_chat_history(username: str) -> list[dict]:
+    import json
+    init_db()
+    with _conn() as con:
+        rows = con.execute(
+            "SELECT message, response, sources, confidence, timestamp FROM chat_history WHERE username=? ORDER BY timestamp ASC",
+            (username,)
+        ).fetchall()
+        res = []
+        for r in rows:
+            try:
+                srcs = json.loads(r[2]) if r[2] else []
+            except Exception:
+                srcs = []
+            res.append({
+                "message": r[0],
+                "response": r[1],
+                "sources": srcs,
+                "confidence": r[3] or 0,
+                "timestamp": r[4]
+            })
+        return res
+
+
+def clear_chat_history(username: str) -> None:
+    init_db()
+    with _conn() as con:
+        con.execute("DELETE FROM chat_history WHERE username=?", (username,))
