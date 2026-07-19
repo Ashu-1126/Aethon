@@ -1,7 +1,0 @@
-{
-  "answer_accuracy": 92,
-  "citation_precision": 95,
-  "avg_answer_seconds": 2.2,
-  "keyword_baseline_seconds": 480,
-  "questions_evaluated": 20
-}

@@ -146,8 +146,8 @@ JSON:"""
 
 def run_evaluation():
     # Make sure we have documents seeded
-    if embeddings.count() == 0:
-        print("Vector store is empty. Seeding corpus database first...")
+    if len(embeddings.list_docs()) < 9:
+        print("Vector store is missing some documents. Seeding corpus database first...")
         seed_database()
         
     print(f"\nStarting benchmark over {len(BENCHMARK_SET)} queries...")

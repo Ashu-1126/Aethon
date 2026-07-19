@@ -158,6 +158,8 @@ export default function UploadPage() {
                 {ACCEPTED.join("  ·  ")} — up to {MAX_MB} MB
               </p>
               <input
+                id="file-upload"
+                name="file-upload"
                 ref={inputRef}
                 type="file"
                 multiple

@@ -191,10 +191,12 @@ export default function KnowledgeCliffPage() {
               {/* Name input */}
               <Reveal delay={0.15}>
                 <div className="mt-8 glass p-6">
-                  <label className="mb-3 block text-sm font-medium">
+                  <label htmlFor="engineerName" className="mb-3 block text-sm font-medium">
                     Engineer name (optional)
                   </label>
                   <input
+                    id="engineerName"
+                    name="engineerName"
                     value={engineerName}
                     onChange={(e) => setEngineerName(e.target.value)}
                     placeholder="e.g. Rajesh Kumar — 28 years, Instrumentation"

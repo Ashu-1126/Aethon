@@ -76,8 +76,10 @@ export default function LoginPage() {
             
             <div className="space-y-3 text-left">
               <div>
-                <label className="mb-1 block text-xs font-medium text-muted">Username</label>
+                <label htmlFor="username" className="mb-1 block text-xs font-medium text-muted">Username</label>
                 <input
+                  id="username"
+                  name="username"
                   type="text"
                   required
                   value={username}
@@ -87,9 +89,11 @@ export default function LoginPage() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-muted">Password</label>
+                <label htmlFor="password" className="mb-1 block text-xs font-medium text-muted">Password</label>
                 <div className="relative">
                   <input
+                    id="password"
+                    name="password"
                     type="password"
                     required
                     value={password}

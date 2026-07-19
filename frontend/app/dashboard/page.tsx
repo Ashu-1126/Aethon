@@ -17,7 +17,7 @@ import {
   TrendingUp,
   Clock,
 } from "lucide-react";
-import { dashboard, compliance } from "@/lib/api";
+import { dashboard, compliance, conflicts } from "@/lib/api";
 import type { DashboardStats, ComplianceAudit } from "@/lib/types";
 import { TrendChart } from "@/components/dashboard/TrendChart";
 import { CompoundRiskPanel } from "@/components/dashboard/CompoundRiskPanel";
@@ -35,6 +35,7 @@ import { PageHero } from "@/components/layout/PageHero";
 export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [audit, setAudit] = useState<ComplianceAudit | null>(null);
+  const [conflictCount, setConflictCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [range, setRange] = useState<"7d" | "30d">("7d");
@@ -51,6 +52,15 @@ export default function Dashboard() {
       setError(true);
     } finally {
       setLoading(false);
+    }
+
+    // Live open-conflict count (drives the KPI card). Fetched independently
+    // so an LLM hiccup here never blanks the whole dashboard.
+    try {
+      const c = await conflicts.list();
+      setConflictCount(c.length);
+    } catch {
+      setConflictCount(0);
     }
 
     // Load compliance separately (takes longer due to LLM)
@@ -74,10 +84,10 @@ export default function Dashboard() {
             { icon: FileStack, label: "Documents indexed", value: stats.docs_indexed, delta: "live", glow: "teal" as const, href: "/upload" },
             { icon: Share2, label: "Graph relationships", value: stats.relationships, delta: "live", glow: "teal" as const, href: "/knowledge-graph" },
             { icon: ShieldCheck, label: "Compliance score", value: stats.compliance_score, suffix: "%", delta: "audit-ready", glow: "gold" as const, href: "/compliance" },
-            { icon: AlertTriangle, label: "Open conflicts", value: stats.open_conflicts, delta: "needs review", glow: "gold" as const, href: "#conflicts" },
+            { icon: AlertTriangle, label: "Open conflicts", value: conflictCount ?? 0, delta: "needs review", glow: "gold" as const, href: "#conflicts" },
           ]
         : [],
-    [stats]
+    [stats, conflictCount]
   );
 
   return (

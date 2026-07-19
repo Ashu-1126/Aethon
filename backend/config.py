@@ -52,7 +52,9 @@ CHUNK_SIZE:    int = 750   # target tokens per chunk
 CHUNK_OVERLAP: int = 80    # overlap tokens
 
 # ── Upload storage ─────────────────────────────────────────────────────────
-UPLOAD_DIR: Path = Path(os.getenv("UPLOAD_DIR", "./data/uploads"))
+DATA_DIR: Path = Path(os.getenv("DATA_DIR", "./data"))
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+UPLOAD_DIR: Path = Path(os.getenv("UPLOAD_DIR", str(DATA_DIR / "uploads")))
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 # ── RAG ────────────────────────────────────────────────────────────────────

@@ -4,16 +4,18 @@ from typing import Optional
 from fastapi import HTTPException, Security
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-SECRET_KEY = "super-secret-aethon-key"
+import os
+
+SECRET_KEY = os.getenv("JWT_SECRET_KEY", "super-secret-aethon-key-fallback")
 ALGORITHM = "HS256"
 
 security = HTTPBearer()
 
-# Dummy database of users and roles
+# Database of users and roles
 USERS = {
-    "admin": {"password": "password123", "role": "admin"},
-    "auditor": {"password": "password123", "role": "auditor"},
-    "engineer": {"password": "password123", "role": "engineer"},
+    "admin": {"password": os.getenv("ADMIN_PASSWORD", "password123"), "role": "admin"},
+    "auditor": {"password": os.getenv("AUDITOR_PASSWORD", "password123"), "role": "auditor"},
+    "engineer": {"password": os.getenv("ENGINEER_PASSWORD", "password123"), "role": "engineer"},
 }
 
 def create_access_token(username: str, role: str) -> str:

@@ -7,7 +7,7 @@ answer(query) → {answer, sources, confidence}
 Pipeline:
   1. Embed query → semantic search in ChromaDB (top-k)
   2. Build citation-aware prompt with retrieved chunks
-  3. Call llama3.1:8b → generate answer
+  3. Call the configured LLM (config.LLM_MODEL) → generate answer
   4. Parse cited sources from the response
   5. Compute confidence from top chunk similarity score
 """
@@ -99,12 +99,17 @@ def _parse_sources(answer: str, hits: list[dict]) -> list[dict]:
 
 
 def _confidence(hits: list[dict]) -> int:
-    """Compute confidence from top hit's similarity score (0–100)."""
+    """Compute confidence from top hit's similarity score (0–100).
+
+    The floor was previously 30, which made low-relevance answers look
+    confident. Now the score is reported proportionally (capped at 97) so a
+    weak match surfaces as low confidence instead of being padded.
+    """
     if not hits:
         return 0
     top = hits[0]["score"]  # already 0-100 from embeddings.retrieve()
     # Scale: very high similarity (>90) → cap at 97, lower → proportional
-    return min(97, max(30, int(top)))
+    return min(97, int(top))
 
 
 # ══════════════════════════════════════════════════════════════════════════

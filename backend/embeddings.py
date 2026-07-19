@@ -7,6 +7,8 @@ Wraps ChromaDB with:
   - retrieve(query, k)       → top-k semantically similar chunks
   - delete_doc(doc_name)     → remove a document from the store
   - count()                  → total stored chunks
+
+Embeddings are generated with the Mistral embedding model (config.EMBED_MODEL).
 """
 from __future__ import annotations
 
@@ -61,9 +63,16 @@ _col = _client.get_or_create_collection(
 # ── Embedding ───────────────────────────────────────────────────────────────
 
 def _embed(texts: list[str]) -> list[list[float]]:
-    """Call OpenRouter Embeddings. Returns list of embedding vectors."""
-    resp = client.embeddings.create(model=EMBED_MODEL, input=texts)
-    return [item.embedding for item in resp.data]
+    """Call Embeddings API. Returns list of embedding vectors.
+    Automatically batches requests to avoid hitting token/batch size limits.
+    """
+    batch_size = 50
+    all_embeddings = []
+    for i in range(0, len(texts), batch_size):
+        batch = texts[i:i + batch_size]
+        resp = client.embeddings.create(model=EMBED_MODEL, input=batch)
+        all_embeddings.extend([item.embedding for item in resp.data])
+    return all_embeddings
 
 
 def _chunk_id(doc_name: str, chunk_index: int) -> str:
@@ -75,7 +84,7 @@ def _chunk_id(doc_name: str, chunk_index: int) -> str:
 
 def _llm_rerank(query: str, hits: list[dict], k: int) -> list[dict]:
     """
-    Reranks hits based on query using llama3.1:8b zero-shot scoring.
+    Reranks hits based on query similarity scoring.
     """
     import json
     import re

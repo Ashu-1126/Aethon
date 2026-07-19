@@ -4,7 +4,7 @@
 
 ## Setup Before Recording/Presenting
 1. Ensure the AETHON frontend is running on `:3000`.
-2. Ensure the FastAPI backend and Ollama are running locally.
+2. Ensure the FastAPI backend is running locally (it uses the Mistral API for LLM/embeddings).
 3. Have two PDFs ready on your desktop: `Factory_Act_1948.pdf` and `SOP-44.pdf` (Confined Space Entry).
 4. Clear any previous chat history in the Copilot UI.
 
@@ -36,5 +36,5 @@
 ## Dress Rehearsal Checklist (Day Before)
 - [ ] Record the video above perfectly and save it as `Aethon_Demo.mp4`.
 - [ ] Run through the exact same script *live* with the team on a screen-share.
-- [ ] Verify there are no network timeouts when querying Ollama.
+- [ ] Verify there are no network timeouts when querying the LLM API.
 - [ ] Ensure the camera and mic are working for whoever is presenting.
