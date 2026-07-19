@@ -46,6 +46,19 @@ def _ocr_page(page) -> str:  # fitz.Page
     try:
         import pytesseract
         from PIL import Image
+        import platform
+
+        if platform.system() == "Windows":
+            # Attempt to automatically locate the Tesseract binary
+            possible_paths = [
+                r"D:\EPIC\tesseract.exe",
+                r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+                r"C:\Users\MOHIT\AppData\Local\Programs\Tesseract-OCR\tesseract.exe",
+            ]
+            for p in possible_paths:
+                if Path(p).exists():
+                    pytesseract.pytesseract.tesseract_cmd = p
+                    break
 
         mat = page.get_pixmap(dpi=200)
         img_bytes = mat.tobytes("png")

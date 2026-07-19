@@ -195,6 +195,32 @@ export default function Copilot() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [msgs, thinking]);
 
+  // Load chat history on mount
+  useEffect(() => {
+    async function loadHistory() {
+      try {
+        const history = await copilot.getHistory();
+        if (history && history.length > 0) {
+          const loadedMsgs: Msg[] = [];
+          for (const h of history) {
+            loadedMsgs.push({ role: "user", text: h.message });
+            // Rehydrate AI message with original sources and confidence score
+            loadedMsgs.push({
+              role: "ai",
+              text: h.response,
+              sources: (h as any).sources ?? [],
+              confidence: (h as any).confidence ?? 0
+            });
+          }
+          setMsgs(loadedMsgs);
+        }
+      } catch {
+        /* history loading is best-effort */
+      }
+    }
+    loadHistory();
+  }, []);
+
   async function ask(q: string) {
     if (!q.trim() || thinking) return;
     setMsgs((m) => [...m, { role: "user", text: q }]);
@@ -369,20 +395,40 @@ export default function Copilot() {
           </div>
 
           {/* suggestions */}
-          <div className="mb-3 mt-6 flex flex-wrap gap-2">
-            {suggestions.map((s) => (
-               <button
-                 key={s}
-                 onClick={() => {
-                   setInput(s);
-                   ask(s);
-                 }}
-                 disabled={thinking}
-                 className="rounded-full border border-border px-3 py-1.5 text-xs text-muted transition-all hover:border-teal/40 hover:text-tealGlow disabled:opacity-40"
-               >
-                 {s}
-               </button>
-            ))}
+          <div className="mb-3 mt-6 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap gap-2">
+              {suggestions.map((s) => (
+                 <button
+                   key={s}
+                   onClick={() => {
+                     setInput(s);
+                     ask(s);
+                   }}
+                   disabled={thinking}
+                   className="rounded-full border border-border px-3 py-1.5 text-xs text-muted transition-all hover:border-teal/40 hover:text-tealGlow disabled:opacity-40"
+                 >
+                   {s}
+                 </button>
+              ))}
+            </div>
+            {msgs.length > 0 && (
+              <button
+                type="button"
+                onClick={async () => {
+                  if (confirm("Are you sure you want to clear your chat history?")) {
+                    try {
+                      await copilot.clearHistory();
+                      setMsgs([]);
+                    } catch {
+                      alert("Failed to clear chat history");
+                    }
+                  }
+                }}
+                className="text-xs text-muted hover:text-danger px-3 py-1.5 rounded-full border border-transparent hover:border-danger/20 transition-all"
+              >
+                Clear History
+              </button>
+            )}
           </div>
 
           {/* lower chat input */}

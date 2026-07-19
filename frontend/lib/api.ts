@@ -110,6 +110,16 @@ export const copilot = {
           method: "POST",
           body: JSON.stringify({ query }),
         }),
+
+  getHistory: (): Promise<{ message: string; response: string; timestamp: string }[]> =>
+    USE_MOCK
+      ? Promise.resolve([])
+      : apiFetch<{ history: { message: string; response: string; timestamp: string }[] }>("/copilot/history").then((r) => r.history),
+
+  clearHistory: (): Promise<{ status: string }> =>
+    USE_MOCK
+      ? Promise.resolve({ status: "success" })
+      : apiFetch<{ status: string }>("/copilot/history", { method: "DELETE" }),
 };
 
 export const documents = {
@@ -124,6 +134,11 @@ export const documents = {
     form.append("file", file);
     return apiFetch<Document>("/ingest", { method: "POST", body: form });
   },
+
+  delete: (id: string): Promise<{ status: string }> =>
+    USE_MOCK
+      ? Promise.resolve({ status: "success" })
+      : apiFetch<{ status: string }>(`/documents/${id}`, { method: "DELETE" }),
 };
 
 export const graph = {

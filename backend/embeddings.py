@@ -165,7 +165,7 @@ def embed_and_store(chunks: list[dict]) -> int:
     Embed all chunks and upsert into ChromaDB.
     Returns number of chunks stored.
     """
-    global _col
+    global _col, _cache_col
     if not chunks:
         return 0
 
@@ -200,6 +200,11 @@ def embed_and_store(chunks: list[dict]) -> int:
                     _client.delete_collection(COLLECTION)
                 except Exception:
                     pass
+                try:
+                    _client.delete_collection(CACHE_COLLECTION)
+                except Exception:
+                    pass
+                _cache_col = None
                 _col = _client.get_or_create_collection(
                     name=COLLECTION,
                     metadata={"hnsw:space": "cosine"},
@@ -215,6 +220,44 @@ def embed_and_store(chunks: list[dict]) -> int:
     return len(chunks)
 
 
+def _find_referenced_doc(query: str) -> str | None:
+    """Helper to detect if a specific document name in list_docs is referenced in the query."""
+    import re
+    docs = list_docs()
+    if not docs:
+        return None
+    
+    # Normalize query for substring matching
+    norm_query = re.sub(r'[^a-z0-9]', ' ', query.lower())
+    norm_query = " ".join(norm_query.split())
+    
+    for doc in docs:
+        # Check exact string match first (case-insensitive)
+        if doc.lower() in query.lower():
+            return doc
+            
+        # Check base name (without extension)
+        base = doc.rsplit('.', 1)[0]
+        if base.lower() in query.lower():
+            return doc
+            
+        # Normalize doc name (e.g. replace underscores/hyphens with spaces)
+        norm_doc = re.sub(r'[^a-z0-9]', ' ', doc.lower())
+        norm_doc = " ".join(norm_doc.split())
+        
+        # Avoid matching tiny substrings like "act" by enforcing min length
+        if len(norm_doc) > 3 and norm_doc in norm_query:
+            return doc
+            
+        # Also check normalized base name (e.g. "factory act 1948" from "Factory_Act_1948.pdf")
+        norm_base = re.sub(r'[^a-z0-9]', ' ', base.lower())
+        norm_base = " ".join(norm_base.split())
+        if len(norm_base) > 3 and norm_base in norm_query:
+            return doc
+
+    return None
+
+
 def retrieve(query: str, k: int = RETRIEVAL_K, rerank: bool = True) -> list[dict]:
     """
     Semantic search. Returns top-k chunks sorted by relevance, with optional LLM reranking.
@@ -226,9 +269,17 @@ def retrieve(query: str, k: int = RETRIEVAL_K, rerank: bool = True) -> list[dict
     retrieve_k = min(2 * k, _col.count()) if rerank else min(k, _col.count())
 
     vec = _embed([query])[0]
+    
+    where = None
+    matched_doc = _find_referenced_doc(query)
+    if matched_doc:
+        print(f"🎯 Query is filtered to document: {matched_doc}")
+        where = {"doc_name": {"$eq": matched_doc}}
+
     results = _col.query(
         query_embeddings=[vec],
         n_results=retrieve_k,
+        where=where,
         include=["documents", "metadatas", "distances"],
     )
 
@@ -277,6 +328,79 @@ def list_docs() -> list[str]:
         return []
     all_meta = _col.get(include=["metadatas"])["metadatas"]
     return sorted({m["doc_name"] for m in all_meta})
+
+
+CACHE_COLLECTION = "semantic_cache"
+_cache_col = None
+
+def get_cache_collection():
+    global _cache_col
+    if _cache_col is None:
+        try:
+            _cache_col = _client.get_or_create_collection(
+                name=CACHE_COLLECTION,
+                metadata={"hnsw:space": "cosine"},
+            )
+        except Exception:
+            try:
+                _client.delete_collection(CACHE_COLLECTION)
+            except Exception:
+                pass
+            _cache_col = _client.get_or_create_collection(
+                name=CACHE_COLLECTION,
+                metadata={"hnsw:space": "cosine"},
+            )
+    return _cache_col
+
+
+def check_semantic_cache(query: str, threshold: float = 0.08) -> dict | None:
+    """Check if a similar query was answered before. Threshold 0.08 is ~92% similarity."""
+    col = get_cache_collection()
+    if col.count() == 0:
+        return None
+    try:
+        query_vec = _embed([query])[0]
+        res = col.query(
+            query_embeddings=[query_vec],
+            n_results=1,
+            include=["documents", "metadatas", "distances"]
+        )
+        if res and res["distances"] and res["distances"][0]:
+            dist = res["distances"][0][0]
+            if dist <= threshold:
+                meta = res["metadatas"][0][0]
+                import json
+                print(f"⚡ Semantic Cache HIT! (distance: {dist:.4f})")
+                return {
+                    "answer": meta["answer"],
+                    "sources": json.loads(meta["sources"]),
+                    "confidence": int(meta["confidence"]),
+                    "cached": True
+                }
+    except Exception as e:
+        print(f"[Cache Warning] Failed to query semantic cache: {e}")
+    return None
+
+
+def set_semantic_cache(query: str, answer: str, sources: list, confidence: int) -> None:
+    """Store a query answer in the semantic cache."""
+    col = get_cache_collection()
+    try:
+        query_vec = _embed([query])[0]
+        import json
+        import uuid
+        col.upsert(
+            ids=[str(uuid.uuid4())],
+            embeddings=[query_vec],
+            documents=[query],
+            metadatas=[{
+                "answer": answer,
+                "sources": json.dumps(sources),
+                "confidence": confidence
+            }]
+        )
+    except Exception as e:
+        print(f"[Cache Warning] Failed to update semantic cache: {e}")
 
 
 # ── CLI helper ───────────────────────────────────────────────────────────────
