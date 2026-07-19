@@ -191,6 +191,12 @@ def _parse_image(path: Path) -> list[tuple[int, str]]:
     return []
 
 
+def _parse_markdown(path: Path) -> list[tuple[int, str]]:
+    """Parse markdown file."""
+    text = path.read_text(encoding="utf-8", errors="ignore")
+    return [(1, text)]
+
+
 PARSERS = {
     ".pdf": _parse_pdf,
     ".docx": _parse_docx,
@@ -202,6 +208,7 @@ PARSERS = {
     ".png": _parse_image,
     ".jpg": _parse_image,
     ".jpeg": _parse_image,
+    ".md": _parse_markdown,
 }
 
 

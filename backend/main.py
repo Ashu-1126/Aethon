@@ -238,7 +238,7 @@ async def delete_document(doc_id: str, user: dict = Depends(get_current_user)):
 # ══════════════════════════════════════════════════════════════════════════
 # 4. INGEST (upload) ⭐
 # ══════════════════════════════════════════════════════════════════════════
-ACCEPTED_TYPES = {".pdf", ".docx", ".txt", ".csv", ".xlsx", ".png", ".jpg", ".html", ".htm"}
+ACCEPTED_TYPES = {".pdf", ".docx", ".txt", ".csv", ".xlsx", ".png", ".jpg", ".html", ".htm", ".md"}
 MAX_BYTES = 50 * 1024 * 1024  # 50 MB
 
 
@@ -409,3 +409,13 @@ async def scoreboard_endpoint(user: dict = Depends(get_current_user)):
 async def get_rca(equipment: str, user: dict = Depends(get_current_user)):
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, root_cause_analysis, equipment)
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# 12. NEW AGENT ENDPOINT
+# ══════════════════════════════════════════════════════════════════════════
+@app.get("/new-agent/{param}")
+async def get_new_agent_route(param: str, user: dict = Depends(get_current_user)):
+    from agents import run_new_agent
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, run_new_agent, param)

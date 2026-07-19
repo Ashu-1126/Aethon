@@ -80,6 +80,12 @@ def init_db() -> None:
             );
             CREATE INDEX IF NOT EXISTS idx_edge_from ON edges(from_id);
             CREATE INDEX IF NOT EXISTS idx_edge_to   ON edges(to_id);
+            CREATE TABLE IF NOT EXISTS custom_metrics (
+                id          TEXT PRIMARY KEY,
+                doc_name    TEXT,
+                metric_val  REAL,
+                recorded_at TEXT
+            );
         """)
         # Migration for existing databases
         try:
@@ -90,6 +96,17 @@ def init_db() -> None:
             con.execute("ALTER TABLE chat_history ADD COLUMN confidence INTEGER DEFAULT 0")
         except Exception:
             pass
+
+
+def add_custom_metric(metric_id: str, doc_name: str, val: float) -> None:
+    """Save custom operational metric."""
+    import time
+    init_db()
+    with _conn() as con:
+        con.execute(
+            "INSERT OR REPLACE INTO custom_metrics (id, doc_name, metric_val, recorded_at) VALUES (?, ?, ?, ?)",
+            (metric_id, doc_name, val, time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
+        )
 
 
 def add_document_to_db(doc_id: str, name: str, doc_type: str, status: str, pages: int, ingested_at: str) -> None:

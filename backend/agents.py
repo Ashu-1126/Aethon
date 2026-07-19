@@ -396,3 +396,41 @@ def generate_rewrite(clause: str, issue: str) -> dict:
         raise HTTPException(status_code=503, detail=f"AI Model Offline or Error: {str(e)}")
 
     raise HTTPException(status_code=503, detail="AI failed to generate valid JSON for rewrite")
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# NEW COMPONENT: INDUSTRIAL ASSISTANT AGENT
+# ══════════════════════════════════════════════════════════════════════════
+
+_MY_NEW_AGENT_PROMPT = """\
+You are a specialized industrial assistant. Analyze this context:
+{context}
+Return ONLY valid JSON:
+{{
+  "analysis": "result here"
+}}
+"""
+
+def run_new_agent(param: str) -> dict:
+    """Retrieve context from RAG and run analysis on the query parameter."""
+    from embeddings import retrieve
+    chunks = retrieve(param, k=5)
+    context = "\n\n".join(c["text"] for c in chunks)
+    
+    try:
+        resp = client.chat.completions.create(
+            model=LLM_MODEL,
+            messages=[{"role": "user", "content": _MY_NEW_AGENT_PROMPT.format(context=context)}],
+            response_format={"type": "json_object"},
+            temperature=0.0,
+            max_tokens=1024,
+        )
+        raw = resp.choices[0].message.content.strip()
+        result = json.loads(raw)
+        _cache_put(f"new_agent:{param}", result)
+        return result
+    except Exception as e:
+        cached = _cache_get(f"new_agent:{param}")
+        if cached is not None:
+            return cached
+        raise HTTPException(status_code=503, detail=str(e))
