@@ -34,6 +34,10 @@ from graph import (
     get_graph,
     delete_doc_from_graph,
     relationship_count,
+    add_document_to_db,
+    update_document_status_in_db,
+    get_documents_from_db,
+    delete_document_from_db,
 )
 from agents import (
     compliance_audit,
@@ -59,74 +63,27 @@ app.add_middleware(
 # Init graph DB on startup
 init_db()
 
-# In-memory document registry (persisted via a JSON sidecar in UPLOAD_DIR).
-# A single shared dict is the source of truth; every read-modify-write goes
-# through _registry_lock so concurrent ingestion tasks can't clobber each
-# other's updates (the previous per-task snapshot approach lost updates).
-_DOC_REGISTRY_PATH = UPLOAD_DIR / "_registry.json"
-_registry: dict[str, dict] | None = None
-# RLock (reentrant) so a thread that already holds the lock can call helpers
-# that also acquire it (e.g. _patch_registry -> _load_registry) without
-# deadlocking on itself.
-_registry_lock = threading.RLock()
-
-
-def _load_registry() -> dict[str, dict]:
-    """Return the shared in-memory registry, loading from disk on first use."""
-    global _registry
-    with _registry_lock:
-        if _registry is None:
-            if _DOC_REGISTRY_PATH.exists():
-                with open(_DOC_REGISTRY_PATH) as f:
-                    _registry = json.load(f)
-            else:
-                _registry = {}
-        return _registry
-
-
-def _save_registry() -> None:
-    """Persist the shared registry to disk atomically (temp file + rename)."""
-    global _registry
-    tmp = _DOC_REGISTRY_PATH.with_suffix(".json.tmp")
-    with _registry_lock:
-        try:
-            with open(tmp, "w") as f:
-                json.dump(_registry, f, indent=2)
-            os.replace(str(tmp), str(_DOC_REGISTRY_PATH))
-        except Exception:
-            try:
-                with open(_DOC_REGISTRY_PATH, "w") as f:
-                    json.dump(_registry, f, indent=2)
-            except Exception:
-                pass
-
-
-def _patch_registry(doc_id: str, **fields) -> None:
-    """Atomically update one document's fields and persist.
-
-    Loads the shared registry under the lock, applies the field updates, and
-    writes it back — so concurrent tasks never overwrite each other.
-    """
-    with _registry_lock:
-        reg = _registry if _registry is not None else _load_registry()
-        reg.setdefault(doc_id, {})
-        reg[doc_id].update(fields)
-        _save_registry()
-
 
 # ── Startup recovery ────────────────────────────────────────────────────────
 # After a crash/restart no ingestion tasks are running, so any document left in
 # a non-terminal state (parsing/embedding/queued) is orphaned. Reset those to
 # "failed" so the UI never shows a doc stuck forever.
 def _recover_orphaned_docs() -> None:
-    reg = _load_registry()
-    orphaned = False
-    for doc_id, info in reg.items():
-        if info.get("status") not in ("indexed", "failed"):
-            reg[doc_id]["status"] = "failed"
-            orphaned = True
-    if orphaned:
-        _save_registry()
+    import sqlite3
+    from config import GRAPH_DB_PATH
+    try:
+        con = sqlite3.connect(GRAPH_DB_PATH, timeout=30.0)
+        con.execute("PRAGMA journal_mode=WAL;")
+        con.execute(
+            "UPDATE documents SET status = 'failed' WHERE status NOT IN ('indexed', 'failed')"
+        )
+        con.commit()
+        con.close()
+    except Exception:
+        pass
+
+
+_recover_orphaned_docs()
 
 
 _recover_orphaned_docs()
@@ -221,19 +178,8 @@ async def copilot_query(req: QueryRequest, user: dict = Depends(get_current_user
 # ══════════════════════════════════════════════════════════════════════════
 @app.get("/documents")
 async def get_documents(user: dict = Depends(get_current_user)):
-    registry = _load_registry()
-    docs = [
-        {
-            "id":          doc_id,
-            "name":        info["name"],
-            "type":        info["type"],
-            "status":      info["status"],
-            "pages":       info.get("pages", 0),
-            "ingested_at": info["ingested_at"],
-        }
-        for doc_id, info in registry.items()
-    ]
-    return {"documents": sorted(docs, key=lambda d: d["ingested_at"], reverse=True)}
+    docs = get_documents_from_db()
+    return {"documents": docs}
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -261,11 +207,11 @@ async def ingest(file: UploadFile = File(...), user: dict = Depends(get_current_
     async with aiofiles.open(dest, "wb") as f:
         await f.write(contents)
 
-    # Register as "queued"
-    _patch_registry(
+    # Register as "queued" in DB
+    add_document_to_db(
         doc_id,
         name=doc_name,
-        type=_infer_doc_type(doc_name),
+        doc_type=_infer_doc_type(doc_name),
         status="queued",
         pages=0,
         ingested_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -284,7 +230,7 @@ async def _process_doc(doc_id: str, path: Path, doc_name: str) -> None:
     are processed simultaneously; the rest wait their turn.
     """
     async def _update(stage: str, progress: int):
-        _patch_registry(doc_id, status=stage)
+        update_document_status_in_db(doc_id, status=stage)
         await _broadcast({"id": doc_id, "stage": stage, "progress": progress})
 
     sem = await _get_ingest_semaphore()
@@ -295,7 +241,7 @@ async def _process_doc(doc_id: str, path: Path, doc_name: str) -> None:
 
             # 1. Parse + chunk
             chunks = await loop.run_in_executor(None, load_and_chunk, path)
-            _patch_registry(doc_id, pages=max((c["page"] for c in chunks), default=0))
+            update_document_status_in_db(doc_id, status="parsing", pages=max((c["page"] for c in chunks), default=0))
 
             await _update("embedding", 35)
 
@@ -312,7 +258,7 @@ async def _process_doc(doc_id: str, path: Path, doc_name: str) -> None:
         except Exception as e:
             import traceback
             traceback.print_exc()
-            _patch_registry(doc_id, status="failed")
+            update_document_status_in_db(doc_id, status="failed")
             await _broadcast({"id": doc_id, "stage": "failed", "progress": 0, "error": str(e)})
 
 

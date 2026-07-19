@@ -42,11 +42,19 @@ def _build_client():
         )
     if CHROMA_URL:
         # Self-hosted Chroma HTTP server (Docker / remote)
+        from urllib.parse import urlparse
+        parsed = urlparse(CHROMA_URL)
+        # Fall back to raw string if not a standard URL (e.g. just a hostname)
+        host = parsed.hostname or CHROMA_URL
+        port = parsed.port or 8000
+        print(f"📊 Connecting to remote ChromaDB server at: {host}:{port}")
         return chromadb.HttpClient(
-            host=CHROMA_URL,
+            host=host,
+            port=port,
             settings=Settings(anonymized_telemetry=False),
         )
     # Local on-disk persistent store (default, dev)
+    print(f"📊 Initialized local persistent ChromaDB at: {CHROMA_PATH}")
     return chromadb.PersistentClient(
         path=CHROMA_PATH,
         settings=Settings(anonymized_telemetry=False),
@@ -157,6 +165,7 @@ def embed_and_store(chunks: list[dict]) -> int:
     Embed all chunks and upsert into ChromaDB.
     Returns number of chunks stored.
     """
+    global _col
     if not chunks:
         return 0
 
@@ -176,12 +185,33 @@ def embed_and_store(chunks: list[dict]) -> int:
     vectors = _embed(texts)
 
     with _write_lock:
-        _col.upsert(
-            ids=ids,
-            embeddings=vectors,
-            documents=texts,
-            metadatas=metadatas,
-        )
+        try:
+            _col.upsert(
+                ids=ids,
+                embeddings=vectors,
+                documents=texts,
+                metadatas=metadatas,
+            )
+        except Exception as e:
+            err_str = str(e).lower()
+            if "dimension" in err_str or "dimensionality" in err_str:
+                print("⚠️ ChromaDB Dimension Mismatch detected. Re-creating collection...")
+                try:
+                    _client.delete_collection(COLLECTION)
+                except Exception:
+                    pass
+                _col = _client.get_or_create_collection(
+                    name=COLLECTION,
+                    metadata={"hnsw:space": "cosine"},
+                )
+                _col.upsert(
+                    ids=ids,
+                    embeddings=vectors,
+                    documents=texts,
+                    metadatas=metadatas,
+                )
+            else:
+                raise e
     return len(chunks)
 
 

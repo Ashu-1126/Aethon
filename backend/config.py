@@ -18,7 +18,7 @@ for env_path in [Path(".env"), Path("../.env"), Path(".env.local"), Path("../.en
 
 # ── OpenRouter ─────────────────────────────────────────────────────────────
 OPENROUTER_API_KEY:  str = os.getenv("OPENROUTER_API_KEY", "")
-OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
+OPENROUTER_BASE_URL: str = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
 LLM_MODEL:           str = os.getenv("LLM_MODEL", "meta-llama/llama-3.3-70b-instruct:free")
 EMBED_MODEL:         str = os.getenv("EMBED_MODEL", "openai/text-embedding-3-small")
 

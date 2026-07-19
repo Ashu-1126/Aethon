@@ -31,8 +31,9 @@ _write_lock = threading.Lock()
 
 @contextmanager
 def _conn():
-    con = sqlite3.connect(GRAPH_DB_PATH, timeout=30)
+    con = sqlite3.connect(GRAPH_DB_PATH, timeout=30.0)
     con.row_factory = sqlite3.Row
+    con.execute("PRAGMA journal_mode=WAL;")
     try:
         yield con
         con.commit()
@@ -60,9 +61,59 @@ def init_db() -> None:
                 FOREIGN KEY (from_id) REFERENCES nodes(id),
                 FOREIGN KEY (to_id)   REFERENCES nodes(id)
             );
+            CREATE TABLE IF NOT EXISTS documents (
+                id          TEXT PRIMARY KEY,
+                name        TEXT NOT NULL,
+                type        TEXT NOT NULL,
+                status      TEXT NOT NULL,
+                pages       INTEGER DEFAULT 0,
+                ingested_at TEXT NOT NULL
+            );
             CREATE INDEX IF NOT EXISTS idx_edge_from ON edges(from_id);
             CREATE INDEX IF NOT EXISTS idx_edge_to   ON edges(to_id);
         """)
+
+
+def add_document_to_db(doc_id: str, name: str, doc_type: str, status: str, pages: int, ingested_at: str) -> None:
+    init_db()
+    with _conn() as con:
+        con.execute(
+            "INSERT OR REPLACE INTO documents (id, name, type, status, pages, ingested_at) VALUES (?,?,?,?,?,?)",
+            (doc_id, name, doc_type, status, pages, ingested_at)
+        )
+
+
+def update_document_status_in_db(doc_id: str, status: str, pages: Optional[int] = None) -> None:
+    init_db()
+    with _conn() as con:
+        if pages is not None:
+            con.execute(
+                "UPDATE documents SET status = ?, pages = ? WHERE id = ?",
+                (status, pages, doc_id)
+            )
+        else:
+            con.execute(
+                "UPDATE documents SET status = ? WHERE id = ?",
+                (status, doc_id)
+            )
+
+
+def get_documents_from_db() -> list[dict]:
+    init_db()
+    with _conn() as con:
+        rows = con.execute("SELECT * FROM documents ORDER BY ingested_at DESC").fetchall()
+        return [dict(r) for r in rows]
+
+
+def delete_document_from_db(doc_id: str) -> Optional[str]:
+    init_db()
+    with _conn() as con:
+        row = con.execute("SELECT name FROM documents WHERE id = ?", (doc_id,)).fetchone()
+        if row:
+            doc_name = row["name"]
+            con.execute("DELETE FROM documents WHERE id = ?", (doc_id,))
+            return doc_name
+    return None
 
 
 # ── LLM extraction ──────────────────────────────────────────────────────────
@@ -165,16 +216,23 @@ def add_chunks_to_graph(chunks: list[dict]) -> int:
     and store into the graph.  Returns number of nodes added.
     """
     init_db()
-    # Sample chunks to keep extraction time reasonable, but cover enough of the
-    # document that the graph isn't sparse (was capped at 20).
-    sampled = chunks[::3][:60]
-    nodes_added = 0
+    # Sample chunks to keep extraction time reasonable (max 15 chunks spread across the doc)
+    sampled = chunks[::6][:15]
+    from concurrent.futures import ThreadPoolExecutor
+    
+    # Run network LLM extraction calls in parallel threads (5 concurrent workers to avoid rate limits)
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        futures = [
+            executor.submit(_extract_entities_from_chunk, chunk["text"], chunk["doc_name"])
+            for chunk in sampled
+        ]
+        results = [f.result() for f in futures]
 
+    nodes_added = 0
     with _write_lock:
         with _conn() as con:
-            for chunk in sampled:
+            for extracted, chunk in zip(results, sampled):
                 doc_name = chunk["doc_name"]
-                extracted = _extract_entities_from_chunk(chunk["text"], doc_name)
 
                 # Upsert entities
                 label_to_id: dict[str, str] = {}
