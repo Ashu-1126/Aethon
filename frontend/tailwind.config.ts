@@ -15,6 +15,7 @@ const config: Config = {
         tealGlow: "#36e9d2",    // bright glow accent
         gold: "#d9b15e",        // warm gold accent
         goldGlow: "#f4d488",    // bright gold
+        warning: "#e0a458",     // amber warning (compound-risk "high")
         text: "#eafaf6",        // primary text (warm white)
         muted: "#7fa39c",       // secondary text
       },

@@ -21,7 +21,7 @@ export type RcaResult = {
   confidence: number;
 };
 
-const BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === "true";
 
 /** Typed error so callers can distinguish network failure from HTTP errors. */
@@ -169,5 +169,5 @@ export const rca = {
 };
 
 export const WS_BASE =
-  process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000";
+  process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8080";
 export const IS_MOCK = USE_MOCK;

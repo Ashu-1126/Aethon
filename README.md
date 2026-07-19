@@ -65,7 +65,7 @@ AETHON wears a **"premium industrial" aesthetic** — a deep-teal abyss base lit
 
 | Layer | Technology |
 |---|---|
-| **Framework** | Next.js 14 (App Router) |
+| **Framework** | Next.js 16 (App Router) |
 | **Language** | TypeScript 5 |
 | **Styling** | Tailwind CSS 3.4 (custom teal + gold design system) |
 | **Animation** | Framer Motion 11 |

@@ -16,16 +16,16 @@ for env_path in [Path(".env"), Path("../.env"), Path(".env.local"), Path("../.en
                     v = v.strip().strip('"').strip("'")
                     os.environ[k] = v
 
-# ── OpenRouter ─────────────────────────────────────────────────────────────
-OPENROUTER_API_KEY:  str = os.getenv("OPENROUTER_API_KEY", "")
-OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
-LLM_MODEL:           str = os.getenv("LLM_MODEL", "meta-llama/llama-3.1-8b-instruct:free")
-EMBED_MODEL:         str = os.getenv("EMBED_MODEL", "openai/text-embedding-3-small")
+# ── AI Model Configuration (Mistral API) ───────────────────────────────────
+MISTRAL_API_KEY: str = os.getenv("MISTRAL_API_KEY", "")
+MISTRAL_BASE_URL: str = "https://api.mistral.ai/v1"
+LLM_MODEL:       str = os.getenv("LLM_MODEL", "mistral-small-latest")
+EMBED_MODEL:     str = os.getenv("EMBED_MODEL", "mistral-embed")
 
 from openai import OpenAI
 client = OpenAI(
-    api_key=OPENROUTER_API_KEY,
-    base_url=OPENROUTER_BASE_URL,
+    api_key=MISTRAL_API_KEY,
+    base_url=MISTRAL_BASE_URL,
 )
 
 # ── ChromaDB ───────────────────────────────────────────────────────────────
@@ -40,7 +40,9 @@ CHUNK_SIZE:    int = 750   # target tokens per chunk
 CHUNK_OVERLAP: int = 80    # overlap tokens
 
 # ── Upload storage ─────────────────────────────────────────────────────────
-UPLOAD_DIR: Path = Path(os.getenv("UPLOAD_DIR", "./data/uploads"))
+DATA_DIR: Path = Path(os.getenv("DATA_DIR", "./data"))
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+UPLOAD_DIR: Path = Path(os.getenv("UPLOAD_DIR", str(DATA_DIR / "uploads")))
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 # ── RAG ────────────────────────────────────────────────────────────────────

@@ -1,10 +1,11 @@
 "use client";
-import { useInView, animate } from "framer-motion";
+import { animate } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 
 /**
- * Animated count-up that runs once when scrolled into view.
- * Matches the proven Stats-section behaviour.
+ * Animated count-up. Animates from the previous value to `to` whenever `to`
+ * changes (e.g. async data arriving after mount). No scroll-gating — the
+ * dashboard KPI cards are above the fold and must always reflect live data.
  */
 export function Counter({
   to,
@@ -22,24 +23,26 @@ export function Counter({
   /** seconds to wait before starting (use when the element fades in first) */
   delay?: number;
 }) {
-  const ref = useRef<HTMLSpanElement>(null);
-  const inView = useInView(ref, { once: true });
   const [val, setVal] = useState(0);
+  const valRef = useRef(0);
   const dp = decimals ?? (Number.isInteger(to) ? 0 : 1);
 
   useEffect(() => {
-    if (!inView) return;
-    const controls = animate(0, to, {
+    const from = valRef.current;
+    const controls = animate(from, to, {
       duration,
       delay,
       ease: "easeOut",
-      onUpdate: (v) => setVal(v),
+      onUpdate: (v) => {
+        valRef.current = v;
+        setVal(v);
+      },
     });
     return () => controls.stop();
-  }, [inView, to, duration, delay]);
+  }, [to, duration, delay]);
 
   return (
-    <span ref={ref}>
+    <span>
       {prefix}
       {val.toLocaleString("en-US", {
         minimumFractionDigits: dp,

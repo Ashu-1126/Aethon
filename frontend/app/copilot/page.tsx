@@ -6,6 +6,7 @@ import { useState, useRef, useEffect } from "react";
 import { Send, FileText, Sparkles, Hexagon, AlertTriangle, Database, Cpu, ArrowRight } from "lucide-react";
 import { copilot, ApiError } from "@/lib/api";
 import type { Source } from "@/lib/types";
+import ReactMarkdown from "react-markdown";
 
 type Msg = {
   role: "user" | "ai";
@@ -286,7 +287,21 @@ export default function Copilot() {
                     }`}
                     aria-live={m.role === "ai" ? "polite" : undefined}
                   >
-                    <p>{m.text}</p>
+                    {m.role === "ai" ? (
+                      <ReactMarkdown
+                        components={{
+                          p: ({node, ...props}) => <p className="mb-3 last:mb-0" {...props} />,
+                          ul: ({node, ...props}) => <ul className="mb-3 list-disc space-y-1 pl-5 last:mb-0" {...props} />,
+                          ol: ({node, ...props}) => <ol className="mb-3 list-decimal space-y-1 pl-5 last:mb-0" {...props} />,
+                          li: ({node, ...props}) => <li className="pl-1" {...props} />,
+                          strong: ({node, ...props}) => <strong className="font-semibold text-white/90" {...props} />,
+                        }}
+                      >
+                        {m.text}
+                      </ReactMarkdown>
+                    ) : (
+                      <p className="whitespace-pre-wrap">{m.text}</p>
+                    )}
                     {m.sources && m.sources.length > 0 && (
                       <>
                         <div className="mt-3 flex flex-wrap gap-2">
@@ -379,6 +394,8 @@ export default function Copilot() {
             className="glass flex items-center gap-2 p-2"
           >
             <input
+              id="chat-input"
+              name="chat-input"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Ask across every document your plant has ever produced…"

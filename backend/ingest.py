@@ -112,7 +112,8 @@ def _parse_xlsx(path: Path) -> list[tuple[int, str]]:
                 pages.append((sheet_idx, "\n".join(rows)))
         wb.close()
         return pages
-    except Exception:
+    except Exception as e:
+        print(f"[Ingest Error] Failed to parse XLSX at {path.name}: {e}")
         return []
 
 
@@ -124,17 +125,21 @@ def _parse_html(path: Path) -> list[tuple[int, str]]:
             super().__init__()
             self.text_parts = []
             self.ignore_tags = {"script", "style", "head", "meta", "title", "link"}
-            self.current_tag = ""
+            # Stack of currently-open tags. Data is ignored only while an
+            # ancestor tag is in `ignore_tags` (e.g. text inside <script>).
+            self.tag_stack = []
 
         def handle_starttag(self, tag, attrs):
-            self.current_tag = tag
+            self.tag_stack.append(tag)
 
         def handle_endtag(self, tag):
-            if self.current_tag == tag:
-                self.current_tag = ""
+            # Pop the matching open tag (handles malformed/mismatched HTML).
+            if tag in self.tag_stack:
+                idx = len(self.tag_stack) - 1 - self.tag_stack[::-1].index(tag)
+                del self.tag_stack[idx:]
 
         def handle_data(self, data):
-            if self.current_tag not in self.ignore_tags:
+            if not any(t in self.ignore_tags for t in self.tag_stack):
                 text = data.strip()
                 if text:
                     self.text_parts.append(text)

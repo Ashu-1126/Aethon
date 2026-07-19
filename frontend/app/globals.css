@@ -61,6 +61,25 @@ body {
   .text-gradient-gold {
     @apply bg-gradient-to-r from-goldGlow via-gold to-goldGlow bg-clip-text text-transparent;
   }
+  /* Compound Risk severity chips (referenced by CompoundRiskPanel.tsx) */
+  .badge-critical {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-mono uppercase tracking-wider;
+    background-color: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.4);
+  }
+  .badge-warning {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-mono uppercase tracking-wider;
+    background-color: rgba(224, 164, 88, 0.15);
+    color: #e0a458;
+    border: 1px solid rgba(224, 164, 88, 0.4);
+  }
+  .badge-medium {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-mono uppercase tracking-wider;
+    background-color: rgba(31, 184, 166, 0.15);
+    color: #36e9d2;
+    border: 1px solid rgba(31, 184, 166, 0.4);
+  }
   /* shimmering sweep used on buttons / headings */
   .sheen::after {
     content: "";

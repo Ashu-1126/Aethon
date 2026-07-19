@@ -6,7 +6,8 @@ Schema:
   nodes  (id, label, type, doc_name)
   edges  (from_id, to_id, relation, doc_name)
 
-Entity/relation extraction uses llama3.1:8b with a JSON prompt.
+Entity/relation extraction uses the configured LLM (config.LLM_MODEL) with a
+JSON prompt.
 """
 from __future__ import annotations
 
@@ -116,8 +117,15 @@ def _extract_entities_from_chunk(text: str, doc_name: str) -> dict:
 # ── Node / edge helpers ──────────────────────────────────────────────────────
 
 def _node_id(label: str) -> str:
-    """Deterministic ID from label so identical entities merge."""
-    return label.lower().strip().replace(" ", "_")[:64]
+    """Deterministic ID from label so identical entities merge.
+
+    A short hash suffix is appended so two distinct long labels that share the
+    same 64-char prefix don't collide into a single node.
+    """
+    import hashlib
+    base = label.lower().strip().replace(" ", "_")[:64]
+    suffix = hashlib.sha1(label.lower().strip().encode()).hexdigest()[:8]
+    return f"{base}_{suffix}"
 
 
 def _upsert_node(con: sqlite3.Connection, label: str, ntype: str, doc_name: str) -> str:
@@ -153,12 +161,13 @@ def _upsert_edge(
 
 def add_chunks_to_graph(chunks: list[dict]) -> int:
     """
-    Run entity extraction on a sample of chunks (every 3rd, max 20)
+    Run entity extraction on a sample of chunks (every 3rd, max 60)
     and store into the graph.  Returns number of nodes added.
     """
     init_db()
-    # Sample chunks to keep extraction time reasonable
-    sampled = chunks[::3][:20]
+    # Sample chunks to keep extraction time reasonable, but cover enough of the
+    # document that the graph isn't sparse (was capped at 20).
+    sampled = chunks[::3][:60]
     nodes_added = 0
 
     with _write_lock:

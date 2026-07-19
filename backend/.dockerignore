@@ -1,0 +1,8 @@
+# Exclude local data, vector stores, and secrets from the image build.
+data/
+chroma/
+__pycache__/
+*.pyc
+.env
+*.db
+registry.json

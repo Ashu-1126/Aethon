@@ -92,7 +92,6 @@ def _save_registry() -> None:
         try:
             with open(tmp, "w") as f:
                 json.dump(_registry, f, indent=2)
-            import os
             os.replace(str(tmp), str(_DOC_REGISTRY_PATH))
         except Exception:
             try:
@@ -212,7 +211,7 @@ async def copilot_query(req: QueryRequest, user: dict = Depends(get_current_user
 
     # Run blocking RAG in a thread so we don't block the event loop
     from rag import answer as rag_answer
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     result = await loop.run_in_executor(None, rag_answer, req.query)
     return result
 
@@ -292,7 +291,7 @@ async def _process_doc(doc_id: str, path: Path, doc_name: str) -> None:
     async with sem:
         try:
             await _update("parsing", 10)
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
 
             # 1. Parse + chunk
             chunks = await loop.run_in_executor(None, load_and_chunk, path)
@@ -324,10 +323,23 @@ async def _process_doc(doc_id: str, path: Path, doc_name: str) -> None:
 async def ws_ingest(ws: WebSocket):
     await ws.accept()
     _ws_connections.append(ws)
+    # Notify the client it is subscribed so the UI can show "live" state.
     try:
+        await ws.send_json({"type": "connected"})
+    except Exception:
+        _ws_connections.remove(ws)
+        return
+    try:
+        # Server→client push channel: progress is broadcast via _broadcast().
+        # We still read from the socket so that a client disconnect (or a
+        # ping/close frame) is detected promptly and the connection cleaned up.
         while True:
-            await ws.receive_text()  # keep alive
+            await ws.receive_text()
     except WebSocketDisconnect:
+        pass
+    except Exception:
+        pass
+    finally:
         if ws in _ws_connections:
             _ws_connections.remove(ws)
 
@@ -337,7 +349,7 @@ async def ws_ingest(ws: WebSocket):
 # ══════════════════════════════════════════════════════════════════════════
 @app.get("/graph")
 async def get_graph_endpoint(user: dict = Depends(get_current_user)):
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, get_graph)
 
 
@@ -347,8 +359,8 @@ async def get_graph_endpoint(user: dict = Depends(get_current_user)):
 @app.get("/compliance/audit")
 async def get_compliance(user: dict = Depends(get_current_user)):
     if vec_count() == 0:
-        raise HTTPException(503, "No documents indexed yet.")
-    loop = asyncio.get_event_loop()
+        return {"overall_score": 0, "standards": []}
+    loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, compliance_audit)
 
 
@@ -359,7 +371,7 @@ class RewriteRequest(BaseModel):
 
 @app.post("/compliance/rewrite")
 async def post_compliance_rewrite(req: RewriteRequest, user: dict = Depends(get_current_user)):
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, generate_rewrite, req.clause, req.issue)
 
 
@@ -370,7 +382,7 @@ async def post_compliance_rewrite(req: RewriteRequest, user: dict = Depends(get_
 async def get_conflicts(user: dict = Depends(get_current_user)):
     if vec_count() == 0:
         return {"conflicts": []}
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     result = await loop.run_in_executor(None, detect_conflicts)
     return {"conflicts": result}
 
@@ -396,5 +408,5 @@ async def scoreboard_endpoint(user: dict = Depends(get_current_user)):
 # ══════════════════════════════════════════════════════════════════════════
 @app.get("/rca/{equipment}")
 async def get_rca(equipment: str, user: dict = Depends(get_current_user)):
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, root_cause_analysis, equipment)

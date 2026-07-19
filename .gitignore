@@ -45,3 +45,14 @@ task.md
 
 # ingested/uploaded documents (runtime data, not source)
 data/uploads/
+backend/data/
+data/
+data_local_backup/
+
+# python
+__pycache__/
+*.pyc
+
+# local scripts / summaries (not part of the app)
+start.ps1
+Agents_3_4_Summary.md

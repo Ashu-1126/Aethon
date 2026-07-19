@@ -18,7 +18,7 @@ def seed_database():
     possible_paths = [
         Path("../corpus"),
         Path("corpus"),
-        Path("c:/Users/LENOVO PC/Desktop/Aethon/corpus"),
+        Path(__file__).resolve().parent.parent / "corpus",
     ]
     
     corpus_dir = None
