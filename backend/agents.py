@@ -174,7 +174,7 @@ def detect_conflicts() -> list[dict]:
             messages=[{"role": "user", "content": _CONFLICT_PROMPT.format(context=context)}],
             response_format={"type": "json_object"},
             temperature=0.0,
-            max_tokens=512,
+            max_tokens=1024,
         )
         raw = resp.choices[0].message.content.strip()
         result = json.loads(raw)
@@ -330,7 +330,7 @@ def root_cause_analysis(equipment: str) -> dict:
             messages=[{"role": "user", "content": _RCA_PROMPT.format(equipment=equipment, context=context, graph_context=graph_context)}],
             response_format={"type": "json_object"},
             temperature=0.0,
-            max_tokens=512,
+            max_tokens=1024,
         )
         raw = resp.choices[0].message.content.strip()
         result = json.loads(raw)
@@ -387,7 +387,7 @@ def generate_rewrite(clause: str, issue: str) -> dict:
             messages=[{"role": "user", "content": _REWRITE_PROMPT.format(clause=clause, issue=issue)}],
             response_format={"type": "json_object"},
             temperature=0.1,
-            max_tokens=512,
+            max_tokens=1024,
         )
         raw = resp.choices[0].message.content.strip()
         result = json.loads(raw)

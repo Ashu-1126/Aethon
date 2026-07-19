@@ -16,16 +16,28 @@ for env_path in [Path(".env"), Path("../.env"), Path(".env.local"), Path("../.en
                     v = v.strip().strip('"').strip("'")
                     os.environ[k] = v
 
-# ── OpenRouter ─────────────────────────────────────────────────────────────
-OPENROUTER_API_KEY:  str = os.getenv("OPENROUTER_API_KEY", "")
-OPENROUTER_BASE_URL: str = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
-LLM_MODEL:           str = os.getenv("LLM_MODEL", "meta-llama/llama-3.3-70b-instruct:free")
-EMBED_MODEL:         str = os.getenv("EMBED_MODEL", "openai/text-embedding-3-small")
+# ── Mistral & OpenRouter Configuration ─────────────────────────────────────
+MISTRAL_API_KEY: str = os.getenv("MISTRAL_API_KEY", "")
+
+if MISTRAL_API_KEY:
+    # Use native Mistral API
+    LLM_MODEL:   str = os.getenv("LLM_MODEL", "mistral-small-latest")
+    EMBED_MODEL: str = os.getenv("EMBED_MODEL", "mistral-embed")
+    API_KEY:     str = MISTRAL_API_KEY
+    BASE_URL:    str = os.getenv("MISTRAL_BASE_URL", "https://api.mistral.ai/v1")
+else:
+    # Fallback to OpenRouter (legacy)
+    OPENROUTER_API_KEY:  str = os.getenv("OPENROUTER_API_KEY", "")
+    OPENROUTER_BASE_URL: str = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+    LLM_MODEL:           str = os.getenv("LLM_MODEL", "meta-llama/llama-3.3-70b-instruct:free")
+    EMBED_MODEL:         str = os.getenv("EMBED_MODEL", "openai/text-embedding-3-small")
+    API_KEY:             str = OPENROUTER_API_KEY
+    BASE_URL:            str = OPENROUTER_BASE_URL
 
 from openai import OpenAI
 client = OpenAI(
-    api_key=OPENROUTER_API_KEY,
-    base_url=OPENROUTER_BASE_URL,
+    api_key=API_KEY,
+    base_url=BASE_URL,
 )
 
 # ── ChromaDB ───────────────────────────────────────────────────────────────

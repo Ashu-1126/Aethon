@@ -74,12 +74,36 @@ def _embed(texts: list[str]) -> list[list[float]]:
     """Call Embeddings API. Returns list of embedding vectors.
     Automatically batches requests to avoid hitting token/batch size limits.
     """
+    import time
+    
+    def _embed_batch_with_retry(batch: list[str], attempts: int = 3, delay: float = 2.0) -> list[list[float]]:
+        for attempt in range(attempts):
+            try:
+                resp = client.embeddings.create(model=EMBED_MODEL, input=batch)
+                if not resp.data:
+                    raise ValueError("No embedding data received")
+                return [item.embedding for item in resp.data]
+            except Exception as e:
+                print(f"[Warning] Embedding batch failed (attempt {attempt+1}/{attempts}): {e}")
+                if attempt < attempts - 1:
+                    time.sleep(delay * (2 ** attempt))
+                else:
+                    # If it's a batch size issue and batch size is > 5, try subdividing it
+                    if len(batch) > 5:
+                        print(f"🔄 Retrying with smaller sub-batches (size {len(batch)//2})...")
+                        mid = len(batch) // 2
+                        left = _embed_batch_with_retry(batch[:mid], attempts, delay)
+                        right = _embed_batch_with_retry(batch[mid:], attempts, delay)
+                        return left + right
+                    raise e
+        return []
+
     batch_size = 50
     all_embeddings = []
     for i in range(0, len(texts), batch_size):
         batch = texts[i:i + batch_size]
-        resp = client.embeddings.create(model=EMBED_MODEL, input=batch)
-        all_embeddings.extend([item.embedding for item in resp.data])
+        embeddings = _embed_batch_with_retry(batch)
+        all_embeddings.extend(embeddings)
     return all_embeddings
 
 
