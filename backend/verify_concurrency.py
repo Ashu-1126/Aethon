@@ -9,7 +9,8 @@ guards actually hold:
      none are lost or stuck, and _registry.json stays valid JSON.
   3. STORES: no "database is locked" / ChromaDB write errors surface.
 
-Requires a running backend (uvicorn main:app --port 8080) and Ollama.
+Requires a running backend (uvicorn main:app --port 8080) and a configured
+OpenRouter API key (OPENROUTER_API_KEY in the environment / .env file).
 
 Usage:
     python verify_concurrency.py            # defaults: 8 docs, http://localhost:8080

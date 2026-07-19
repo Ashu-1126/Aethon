@@ -16,7 +16,10 @@ from typing import Any
 
 import chromadb
 from chromadb.config import Settings
-from config import CHROMA_PATH, COLLECTION, EMBED_MODEL, RETRIEVAL_K, LLM_MODEL, client
+from config import (
+    CHROMA_PATH, CHROMA_URL, CHROMA_CLOUD_API_KEY, CHROMA_TENANT,
+    CHROMA_DATABASE, COLLECTION, EMBED_MODEL, RETRIEVAL_K, LLM_MODEL, client,
+)
 
 
 # Serializes ChromaDB write operations (upsert/delete). ChromaDB's client is
@@ -25,11 +28,30 @@ from config import CHROMA_PATH, COLLECTION, EMBED_MODEL, RETRIEVAL_K, LLM_MODEL,
 _write_lock = threading.Lock()
 
 
-# ── ChromaDB client (persistent, local) ────────────────────────────────────
-_client = chromadb.PersistentClient(
-    path=CHROMA_PATH,
-    settings=Settings(anonymized_telemetry=False),
-)
+# ── ChromaDB client (mode auto-selected from env) ───────────────────────────
+# Priority: Chroma Cloud (CHROMA_CLOUD_API_KEY) > Server (CHROMA_URL) > Local (CHROMA_PATH)
+def _build_client():
+    if CHROMA_CLOUD_API_KEY:
+        # Managed Chroma Cloud (https://www.trychroma.com)
+        return chromadb.CloudClient(
+            api_key=CHROMA_CLOUD_API_KEY,
+            tenant=CHROMA_TENANT,
+            database=CHROMA_DATABASE,
+        )
+    if CHROMA_URL:
+        # Self-hosted Chroma HTTP server (Docker / remote)
+        return chromadb.HttpClient(
+            host=CHROMA_URL,
+            settings=Settings(anonymized_telemetry=False),
+        )
+    # Local on-disk persistent store (default, dev)
+    return chromadb.PersistentClient(
+        path=CHROMA_PATH,
+        settings=Settings(anonymized_telemetry=False),
+    )
+
+
+_client = _build_client()
 _col = _client.get_or_create_collection(
     name=COLLECTION,
     metadata={"hnsw:space": "cosine"},

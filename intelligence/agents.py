@@ -1,11 +1,11 @@
 from typing import Dict, Any, List
-import ollama
 from vector_store import VectorStore
 from graph_store import GraphStore
+from openrouter_client import chat_json, LLM_MODEL
 
 class IntelligentAgents:
     def __init__(self):
-        self.model = "llama3.1:8b"
+        self.model = LLM_MODEL
         self.vector_store = VectorStore()
         self.graph_store = GraphStore()
 
@@ -33,10 +33,8 @@ Output a JSON object with:
 
 STRICT JSON OUTPUT ONLY.
 """
-        response = ollama.generate(model=self.model, prompt=prompt, format="json")
         try:
-            import json
-            return json.loads(response["response"])
+            return chat_json(prompt, model=self.model, max_tokens=1024)
         except:
             return {"compliant": False, "gaps": ["Error parsing response"], "cited_clauses": []}
 
@@ -61,10 +59,8 @@ Output a JSON object with:
 
 STRICT JSON OUTPUT ONLY.
 """
-        response = ollama.generate(model=self.model, prompt=prompt, format="json")
         try:
-            import json
-            return json.loads(response["response"])
+            return chat_json(prompt, model=self.model, max_tokens=1024)
         except:
             return {"has_conflict": False, "conflicts": []}
 
@@ -85,9 +81,7 @@ Output a JSON object with:
 
 STRICT JSON OUTPUT ONLY.
 """
-        response = ollama.generate(model=self.model, prompt=prompt, format="json")
         try:
-            import json
-            return json.loads(response["response"])
+            return chat_json(prompt, model=self.model, max_tokens=1024)
         except:
             return {"likely_cause": "Unknown", "citations": []}

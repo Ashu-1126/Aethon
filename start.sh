@@ -36,19 +36,13 @@ fi
 echo "🔄 Starting Docker containers..."
 docker-compose up -d --build
 
-# Wait for Ollama to be ready
-echo "⏳ Waiting for Ollama engine to start..."
+# Wait for backend to be ready
+echo "⏳ Waiting for backend to start..."
 sleep 10
-
-# Pull models
-echo "🧠 Pulling llama3.1:8b (this might take a while on the first run)..."
-docker exec aethon-ollama ollama run llama3.1:8b "Hi, verify you are working."
-
-echo "🧠 Pulling nomic-embed-text for embeddings..."
-docker exec aethon-ollama ollama pull nomic-embed-text
 
 echo "=========================================="
 echo "✅ Boot complete!"
 echo "🌐 Frontend: http://localhost:3000"
 echo "⚙️ Backend: http://localhost:8080"
+echo "🧠 LLM + embeddings served via OpenRouter (set OPENROUTER_API_KEY in .env)"
 echo "=========================================="

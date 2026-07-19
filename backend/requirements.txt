@@ -13,9 +13,6 @@ pytesseract==0.3.10
 # Vector store
 chromadb==0.5.3
 
-# Ollama Python client
-ollama==0.2.1
-
 # Utilities
 pydantic==2.7.4
 PyJWT==2.8.0

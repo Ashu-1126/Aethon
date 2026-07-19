@@ -1,14 +1,14 @@
 import json
-import ollama
 from typing import Dict, Any
+from openrouter_client import chat_json, LLM_MODEL
 
 class GraphExtractor:
     def __init__(self):
-        self.model = "llama3.1:8b"
-        
+        self.model = LLM_MODEL
+
     def extract_from_text(self, text: str) -> Dict[str, Any]:
         """
-        Uses Llama 3.1 to extract entities and relations from a text chunk.
+        Uses an LLM (via OpenRouter) to extract entities and relations from a text chunk.
         Returns a JSON object containing 'nodes' and 'edges'.
         """
         prompt = f"""You are an industrial knowledge extraction AI. 
@@ -40,15 +40,8 @@ TEXT:
 {text}
 """
         try:
-            print("Extracting graph data using Llama 3.1...")
-            response = ollama.generate(
-                model=self.model,
-                prompt=prompt,
-                format="json"
-            )
-            
-            # The response is guaranteed to be JSON due to format="json"
-            return json.loads(response["response"])
+            print("Extracting graph data using LLM via OpenRouter...")
+            return chat_json(prompt, model=self.model, max_tokens=512)
         except Exception as e:
             print(f"[Error] Failed to extract entities: {e}")
             return {"nodes": [], "edges": []}

@@ -1,44 +1,22 @@
 import os
 from typing import List, Dict, Any
-import ollama
+from openrouter_client import client, LLM_MODEL, chat_json
 
-def verify_ollama_connection() -> bool:
+def verify_openrouter_connection() -> bool:
     """
-    Verifies that the local Ollama instance is running and the required models are available.
+    Verifies that the OpenRouter API key is configured and reachable.
     """
-    required_models = ["llama3.1:8b", "nomic-embed-text:latest"]
-    try:
-        models_response = ollama.list()
-        # In newer ollama-python versions, this is an object, not a dict
-        available_models = [m.model for m in models_response.models]
-        print(f"Available local models: {available_models}")
-        
-        all_found = True
-        for rm in required_models:
-            # allow partial matches in case tag is different
-            if not any(rm.split(':')[0] in am for am in available_models):
-                print(f"[Warning] Required model '{rm}' not found. Please run: `ollama pull {rm}`")
-                all_found = False
-                
-        if all_found:
-            print("[OK] All required Ollama models are available.")
-            
-        return all_found
-    except Exception as e:
-        print(f"[Error] Error connecting to Ollama: {e}")
-        print("Please ensure Ollama is running in the background.")
+    from openrouter_client import OPENROUTER_API_KEY
+    if not OPENROUTER_API_KEY:
+        print("[Error] OPENROUTER_API_KEY is not set. Add it to your .env file.")
         return False
-
-def pull_models_if_missing():
-    """Helper to pull models if they aren't downloaded yet."""
-    models_to_pull = ["llama3.1:8b", "nomic-embed-text"]
-    for model in models_to_pull:
-        print(f"Pulling {model} (this may take a while if not already downloaded)...")
-        try:
-            ollama.pull(model)
-            print(f"[OK] Successfully pulled {model}")
-        except Exception as e:
-            print(f"[Error] Failed to pull {model}: {e}")
+    try:
+        client.with_options(timeout=10.0).models.list()
+        print("[OK] OpenRouter connection verified.")
+        return True
+    except Exception as e:
+        print(f"[Error] Error connecting to OpenRouter: {e}")
+        return False
 
 from document_loader import DocumentLoader
 from vector_store import VectorStore
@@ -108,24 +86,28 @@ ANSWER:
 """
 
     # 4. Generate the response
-    print(f"Asking Llama 3.1: '{query}'...")
-    response = ollama.generate(model="llama3.1:8b", prompt=prompt)
-    
+    print(f"Asking LLM via OpenRouter: '{query}'...")
+    resp = client.chat.completions.create(
+        model=LLM_MODEL,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.1,
+        max_tokens=1024,
+    )
+    answer_text = resp.choices[0].message.content.strip()
+
     # Extract sources for the frontend
     sources = [{"doc_name": r["metadata"]["doc_name"], "page": r["metadata"]["page"], "snippet": r["content"][:100] + "..."} for r in results]
-    
+
     return {
-        "answer": response["response"],
+        "answer": answer_text,
         "sources": sources,
         "confidence": 85  # Placeholder until we implement a real confidence metric
     }
 
 if __name__ == "__main__":
     print("Initializing Aethon AI Intelligence Core...")
-    if not verify_ollama_connection():
-        print("Attempting to pull required models...")
-        pull_models_if_missing()
-        verify_ollama_connection()
+    if not verify_openrouter_connection():
+        print("Please set OPENROUTER_API_KEY in your .env file and retry.")
     else:
         print("[OK] Ready for operations.")
         print("\n--- Usage Examples ---")

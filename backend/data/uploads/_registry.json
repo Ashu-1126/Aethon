@@ -54,5 +54,68 @@
     "status": "indexed",
     "pages": 1,
     "ingested_at": "2026-07-18T13:38:23Z"
+  },
+  "74654791": {
+    "name": "DGMS_Circular_2019.pdf",
+    "type": "regulation",
+    "status": "indexed",
+    "pages": 1,
+    "ingested_at": "2026-07-19T09:36:58Z"
+  },
+  "83f4df79": {
+    "name": "Factory_Act_1948.pdf",
+    "type": "regulation",
+    "status": "indexed",
+    "pages": 64,
+    "ingested_at": "2026-07-19T09:56:29Z"
+  },
+  "c38b9bb7": {
+    "name": "MP-12.pdf",
+    "type": "document",
+    "status": "indexed",
+    "pages": 1,
+    "ingested_at": "2026-07-19T09:57:30Z"
+  },
+  "8bf38351": {
+    "name": "OEM_Pump_Manual.pdf",
+    "type": "manual",
+    "status": "indexed",
+    "pages": 1,
+    "ingested_at": "2026-07-19T09:58:29Z"
+  },
+  "0993960b": {
+    "name": "OISD-105.pdf",
+    "type": "regulation",
+    "status": "indexed",
+    "pages": 24,
+    "ingested_at": "2026-07-19T10:09:30Z"
+  },
+  "b8b44d49": {
+    "name": "OISD-116.pdf",
+    "type": "regulation",
+    "status": "indexed",
+    "pages": 24,
+    "ingested_at": "2026-07-19T10:17:31Z"
+  },
+  "1adef118": {
+    "name": "PESO_Rule_14.pdf",
+    "type": "regulation",
+    "status": "indexed",
+    "pages": 1,
+    "ingested_at": "2026-07-19T10:18:32Z"
+  },
+  "db8bddfd": {
+    "name": "SOP-44.pdf",
+    "type": "procedure",
+    "status": "indexed",
+    "pages": 1,
+    "ingested_at": "2026-07-19T10:19:31Z"
+  },
+  "f9ddb191": {
+    "name": "WorkOrder_log.pdf",
+    "type": "document",
+    "status": "indexed",
+    "pages": 1,
+    "ingested_at": "2026-07-19T10:20:32Z"
   }
 }

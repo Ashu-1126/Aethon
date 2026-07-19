@@ -1,23 +1,6 @@
 version: '3.8'
 
 services:
-  ollama:
-    image: ollama/ollama:latest
-    container_name: aethon-ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    restart: unless-stopped
-    # If the host has an NVIDIA GPU, this enables passthrough
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: 1
-    #           capabilities: [gpu]
-
   chromadb:
     image: chromadb/chroma:latest
     container_name: aethon-chromadb
@@ -39,10 +22,15 @@ services:
     volumes:
       - backend_db:/app/data # For SQLite
     environment:
-      - OLLAMA_HOST=http://ollama:11434
+      # OpenRouter (LLM + embeddings) — provide your key via .env
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - LLM_MODEL=${LLM_MODEL:-meta-llama/llama-3.1-8b-instruct:free}
+      - EMBED_MODEL=${EMBED_MODEL:-openai/text-embedding-3-small}
       - CHROMA_URL=http://chromadb:8000
+      - CHROMA_CLOUD_API_KEY=${CHROMA_CLOUD_API_KEY:-}
+      - CHROMA_TENANT=${CHROMA_TENANT:-default_tenant}
+      - CHROMA_DATABASE=${CHROMA_DATABASE:-default_database}
     depends_on:
-      - ollama
       - chromadb
     restart: unless-stopped
 
@@ -63,6 +51,5 @@ services:
     restart: unless-stopped
 
 volumes:
-  ollama_data:
   chroma_data:
   backend_db:

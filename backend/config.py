@@ -19,7 +19,7 @@ for env_path in [Path(".env"), Path("../.env"), Path(".env.local"), Path("../.en
 # ── OpenRouter ─────────────────────────────────────────────────────────────
 OPENROUTER_API_KEY:  str = os.getenv("OPENROUTER_API_KEY", "")
 OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
-LLM_MODEL:           str = os.getenv("LLM_MODEL", "meta-llama/llama-3.1-8b-instruct:free")
+LLM_MODEL:           str = os.getenv("LLM_MODEL", "meta-llama/llama-3.3-70b-instruct:free")
 EMBED_MODEL:         str = os.getenv("EMBED_MODEL", "openai/text-embedding-3-small")
 
 from openai import OpenAI
@@ -31,6 +31,18 @@ client = OpenAI(
 # ── ChromaDB ───────────────────────────────────────────────────────────────
 CHROMA_PATH: str = os.getenv("CHROMA_PATH", "./data/chroma")
 COLLECTION:  str = "aethon_corpus"
+
+# Vector store endpoint (self-hosted / Docker Chroma server).
+# e.g. http://chromadb:8000  — takes precedence over CHROMA_PATH when set.
+CHROMA_URL: str = os.getenv("CHROMA_URL", "")
+
+# ── Chroma Cloud (managed SaaS) ────────────────────────────────────────────
+# Set CHROMA_CLOUD_API_KEY to use Chroma Cloud (https://www.trychroma.com).
+# When set, it takes precedence over CHROMA_URL and CHROMA_PATH.
+# Get the key + tenant/database from the Chroma Cloud console.
+CHROMA_CLOUD_API_KEY: str = os.getenv("CHROMA_CLOUD_API_KEY", "")
+CHROMA_TENANT:        str = os.getenv("CHROMA_TENANT", "default_tenant")
+CHROMA_DATABASE:      str = os.getenv("CHROMA_DATABASE", "default_database")
 
 # ── SQLite graph ───────────────────────────────────────────────────────────
 GRAPH_DB_PATH: str = os.getenv("GRAPH_DB_PATH", "./data/graph.db")

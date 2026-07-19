@@ -1,19 +1,16 @@
 import chromadb
-import ollama
 from typing import List, Dict, Any
+from openrouter_client import embed
 
 class VectorStore:
     def __init__(self, collection_name: str = "documents"):
         # Initialize a local persistent ChromaDB client
         self.client = chromadb.PersistentClient(path="./chroma_db")
-        
-        # We will use Ollama's nomic-embed-text for embeddings
         self.collection = self.client.get_or_create_collection(name=collection_name)
-        
+
     def _get_embedding(self, text: str) -> List[float]:
-        """Generate embedding using Ollama nomic-embed-text."""
-        response = ollama.embeddings(model="nomic-embed-text", prompt=text)
-        return response["embedding"]
+        """Generate embedding using OpenRouter embeddings."""
+        return embed(text)
 
     def add_chunks(self, chunks: List[Dict[str, Any]]):
         """Add a list of document chunks (with metadata) to the vector store."""
