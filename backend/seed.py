@@ -11,7 +11,7 @@ sys.path.append(str(Path(__file__).parent))
 from config import UPLOAD_DIR
 from ingest import load_and_chunk, _infer_doc_type
 from embeddings import embed_and_store
-from graph import add_chunks_to_graph, init_db
+from graph import add_chunks_to_graph, init_db, add_document_to_db, get_documents_from_db
 
 def seed_database():
     # Try multiple paths to find corpus directory
@@ -36,18 +36,13 @@ def seed_database():
     # Create destination uploads dir if not exists
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     
-    # Load registry
-    registry_path = UPLOAD_DIR / "_registry.json"
-    if registry_path.exists():
-        try:
-            with open(registry_path, "r") as f:
-                registry = json.load(f)
-        except Exception:
-            registry = {}
-    else:
-        registry = {}
-
     init_db()
+
+    # Load registry from SQLite
+    try:
+        db_docs = get_documents_from_db()
+    except Exception:
+        db_docs = []
 
     # Find all docs in corpus
     supported_extensions = {".pdf", ".docx", ".txt", ".csv", ".xlsx", ".html", ".htm"}
@@ -61,7 +56,7 @@ def seed_database():
         
         # Check if already in registry
         already_indexed = False
-        for entry in registry.values():
+        for entry in db_docs:
             if entry.get("name") == doc_name and entry.get("status") == "indexed":
                 already_indexed = True
                 break
@@ -90,28 +85,26 @@ def seed_database():
             # 3. Add to Knowledge Graph
             add_chunks_to_graph(chunks)
             
-            # Update registry
-            registry[doc_id] = {
-                "name": doc_name,
-                "type": doc_type,
-                "status": "indexed",
-                "pages": pages,
-                "ingested_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-            }
+            # Update registry in SQLite
+            add_document_to_db(
+                doc_id,
+                name=doc_name,
+                doc_type=doc_type,
+                status="indexed",
+                pages=pages,
+                ingested_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+            )
             print(f"Successfully indexed '{doc_name}' with {len(chunks)} chunks ({pages} pages).")
         except Exception as e:
             print(f"Failed to process '{doc_name}': {e}")
-            registry[doc_id] = {
-                "name": doc_name,
-                "type": doc_type,
-                "status": "failed",
-                "pages": 0,
-                "ingested_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-            }
-            
-        # Save registry after each document to avoid losing progress
-        with open(registry_path, "w") as f:
-            json.dump(registry, f, indent=2)
+            add_document_to_db(
+                doc_id,
+                name=doc_name,
+                doc_type=doc_type,
+                status="failed",
+                pages=0,
+                ingested_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+            )
 
     print("\nDatabase seeding completed successfully.")
 
