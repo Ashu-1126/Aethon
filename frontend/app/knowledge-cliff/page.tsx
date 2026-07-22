@@ -107,6 +107,8 @@ export default function KnowledgeCliffPage() {
   // Calculate progress based on answered questions
   const answeredCount = Object.values(answers).filter((val) => val && val.trim().length > 0).length;
   const progress = Math.round((answeredCount / QUESTIONS.length) * 100) || 0;
+  const allAnswered = answeredCount === QUESTIONS.length;
+
 
 
   const [detectedGaps, setDetectedGaps] = useState<KnowledgeGapItem[]>([]);
