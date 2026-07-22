@@ -35,9 +35,11 @@ else:
     BASE_URL:            str = OPENROUTER_BASE_URL
 
 from openai import OpenAI
+import httpx as _httpx
 client = OpenAI(
     api_key=API_KEY,
     base_url=BASE_URL,
+    http_client=_httpx.Client(),
 )
 
 # ── ChromaDB ───────────────────────────────────────────────────────────────
