@@ -17,6 +17,7 @@ import {
   ShieldAlert,
   RefreshCw,
   AlertTriangle,
+  Users,
 } from "lucide-react";
 import { documents, knowledgeGaps } from "@/lib/api";
 import type { KnowledgeGapItem } from "@/lib/types";
