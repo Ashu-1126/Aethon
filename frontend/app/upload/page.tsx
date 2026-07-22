@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { UploadCloud, FileText, CheckCircle2, XCircle, Loader2, Trash2 } from "lucide-react";
 import { documents, ApiError, IS_MOCK } from "@/lib/api";
-import { useWebSocket } from "@/hooks/useWebSocket";
+
 import type { Document, DocStatus, IngestProgress } from "@/lib/types";
 import { PageHero } from "@/components/layout/PageHero";
 
@@ -49,12 +49,34 @@ export default function UploadPage() {
   }, [refreshDocs]);
 
   // Live ingestion progress over WebSocket (real backend mode)
-  useWebSocket<IngestProgress>("/ws/ingest", (p) => {
-    setQueue((q) =>
-      q.map((it) => (it.id === p.id ? { ...it, stage: p.stage, progress: p.progress } : it))
-    );
-    if (p.stage === "indexed") refreshDocs();
-  });
+  const refreshDocsRef = useRef(refreshDocs);
+  refreshDocsRef.current = refreshDocs;
+  useEffect(() => {
+    if (IS_MOCK) return;
+    const WS_BASE = (typeof window !== "undefined"
+      ? window.location.origin.replace(/^http/, "ws")
+      : "ws://localhost:8080"
+    ).replace(":3000", ":8080");
+    let ws: WebSocket | null = null;
+    let stopped = false;
+    let retryDelay = 1000;
+    function connect() {
+      if (stopped) return;
+      ws = new WebSocket(`${WS_BASE}/ws/ingest`);
+      ws.onmessage = (evt) => {
+        try {
+          const p: IngestProgress = JSON.parse(evt.data);
+          setQueue((q) => q.map((it) => it.id === p.id ? { ...it, stage: p.stage, progress: p.progress } : it));
+          if (p.stage === "indexed") refreshDocsRef.current();
+        } catch { /* ignore */ }
+      };
+      ws.onclose = () => { if (!stopped) { setTimeout(connect, retryDelay); retryDelay = Math.min(retryDelay * 2, 30_000); } };
+      ws.onerror = () => ws?.close();
+      ws.onopen = () => { retryDelay = 1000; };
+    }
+    connect();
+    return () => { stopped = true; ws?.close(); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // In mock mode there's no socket — fake the progress so the page is demoable.
   function simulateProgress(id: string) {
