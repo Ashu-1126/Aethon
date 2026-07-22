@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { UploadCloud, FileText, CheckCircle2, XCircle, Loader2, Trash2 } from "lucide-react";
 import { documents, ApiError, IS_MOCK } from "@/lib/api";
-import { useWebSocket } from "@/hooks/use-websocket";
+import { useWebSocket } from "@/hooks/useWebSocket";
 import type { Document, DocStatus, IngestProgress } from "@/lib/types";
 import { PageHero } from "@/components/layout/PageHero";
 
