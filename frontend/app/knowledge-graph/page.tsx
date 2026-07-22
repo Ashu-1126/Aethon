@@ -165,7 +165,7 @@ export default function KnowledgeGraph() {
               />
             ) : (
               <div className="rounded-2xl overflow-hidden border border-white/10">
-                <GraphCanvas nodes={positioned} edges={data.edges} />
+                <GraphCanvas nodes={positioned} data={data} />
               </div>
             )}
 
