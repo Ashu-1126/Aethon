@@ -154,7 +154,6 @@ export default function KnowledgeGraph() {
               <Skeleton className="aspect-[3/4] w-full rounded-2xl sm:aspect-[16/10]" />
             ) : error ? (
               <ErrorState
-                title="Graph unavailable"
                 message="Could not load the knowledge graph. Make sure the backend is running."
                 onRetry={load}
               />
