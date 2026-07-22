@@ -11,7 +11,7 @@ import {
   CheckCircle2, Wifi, RefreshCw, X, Radio, Gauge, Thermometer,
   Brain, TrendingUp, Layers, ChevronRight, Share2, Sparkles
 } from "lucide-react";
-import { assets, graph } from "@/lib/api";
+import { assets, graph, rca } from "@/lib/api";
 import type {
   Asset, AssetHealth, AssetForecast, AssetComplianceResult,
   AssetEvent, GraphData
@@ -80,7 +80,7 @@ export default function DigitalTwinPage() {
       assets.compliance(selectedTag).catch(() => null),
       assets.getEvents(selectedTag).catch(() => []),
       assets.getDocuments(selectedTag).catch(() => []),
-      assets.rca(selectedTag).catch(() => null),
+      rca.get(selectedTag).catch(() => null),
       graph.traverse(selectedTag, 1).catch(() => null),
     ]).then(([h, f, c, ev, d, r, g]) => {
       setHealthData(h);
