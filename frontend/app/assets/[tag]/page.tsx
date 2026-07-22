@@ -11,7 +11,7 @@ import {
   Loader2, Zap, Shield, Activity, Clock, FileText,
   TrendingUp, Brain, ChevronLeft, RefreshCw, Plus, X,
 } from "lucide-react";
-import { assets } from "@/lib/api";
+import { assets, rca } from "@/lib/api";
 import type {
   Asset, AssetEvent, AssetHealth, AssetForecast,
   AssetComplianceResult,
@@ -544,7 +544,7 @@ function RcaTab({ tag }: { tag: string }) {
 
   const loadRca = useCallback(async () => {
     setLoading(true);
-    try { setResult(await assets.rca(tag)); }
+    try { setResult(await rca.get(tag)); }
     catch { setResult("error"); }
     finally { setLoading(false); }
   }, [tag]);
