@@ -1,4 +1,3 @@
-"use client";
 import { useEffect, useRef } from "react";
 
 const IS_MOCK = process.env.NEXT_PUBLIC_MOCK === "true";
