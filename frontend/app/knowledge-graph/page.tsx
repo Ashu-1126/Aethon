@@ -99,11 +99,93 @@ export default function KnowledgeGraph() {
           />
         }
       >
-                  ))}
-                </div>
-              </Reveal>
-            </>
-          )}
+        <Reveal>
+          <>
+            {/* Traversal controls */}
+            <form onSubmit={handleTraverse} className="mb-6 flex flex-wrap items-center gap-3">
+              <input
+                type="text"
+                value={traversalLabel}
+                onChange={(e) => setTraversalLabel(e.target.value)}
+                placeholder="Search node (e.g. Pump P-204)…"
+                className="flex-1 min-w-[200px] rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              />
+              <select
+                value={depth}
+                onChange={(e) => setDepth(Number(e.target.value))}
+                className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+              >
+                {[1, 2, 3, 4].map((d) => (
+                  <option key={d} value={d} className="bg-[#0d1117]">
+                    Depth {d}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="submit"
+                className="flex items-center gap-2 rounded-xl bg-teal-500 px-5 py-2 text-sm font-semibold text-black hover:bg-teal-400 transition-colors"
+              >
+                <Share2 size={14} /> Traverse
+              </button>
+              {traverserActive && (
+                <button
+                  type="button"
+                  onClick={load}
+                  className="rounded-xl border border-white/10 px-4 py-2 text-sm text-white/60 hover:text-white transition-colors"
+                >
+                  Reset
+                </button>
+              )}
+            </form>
+
+            {/* Stats bar */}
+            {data && !loading && (
+              <div className="mb-4 flex flex-wrap gap-4 text-xs text-white/40">
+                <span>{data.nodes.length} nodes</span>
+                <span>{data.edges.length} relationships</span>
+                {traverserActive && (
+                  <span className="text-teal-400">Showing subgraph for &ldquo;{traversalLabel}&rdquo;</span>
+                )}
+              </div>
+            )}
+
+            {/* Main content area */}
+            {loading ? (
+              <Skeleton className="aspect-[3/4] w-full rounded-2xl sm:aspect-[16/10]" />
+            ) : error ? (
+              <ErrorState
+                title="Graph unavailable"
+                message="Could not load the knowledge graph. Make sure the backend is running."
+                onRetry={load}
+              />
+            ) : !data || data.nodes.length === 0 ? (
+              <EmptyState
+                icon={<Share2 size={32} className="text-white/30" />}
+                title="Graph is empty"
+                description="Upload documents to start building your knowledge graph."
+              />
+            ) : (
+              <div className="rounded-2xl overflow-hidden border border-white/10">
+                <GraphCanvas nodes={positioned} edges={data.edges} />
+              </div>
+            )}
+
+            {/* Legend */}
+            {data && data.nodes.length > 0 && !loading && (
+              <div className="mt-4 flex flex-wrap gap-3">
+                {Object.entries(GRAPH_COLORS).map(([type, color]) => (
+                  <div key={type} className="flex items-center gap-1.5 text-xs text-white/50">
+                    <span
+                      className="h-2.5 w-2.5 rounded-full"
+                      style={{ backgroundColor: color as string }}
+                    />
+                    {type}
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        </Reveal>
       </PageContainer>
     </div>
   );
