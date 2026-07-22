@@ -159,9 +159,9 @@ export default function KnowledgeGraph() {
               />
             ) : !data || data.nodes.length === 0 ? (
               <EmptyState
-                icon={<Share2 size={32} className="text-white/30" />}
+                icon={Share2}
                 title="Graph is empty"
-                description="Upload documents to start building your knowledge graph."
+                message="Upload documents to start building your knowledge graph."
               />
             ) : (
               <div className="rounded-2xl overflow-hidden border border-white/10">
