@@ -17,5 +17,4 @@ chromadb==0.5.3
 # Utilities
 pydantic==2.7.4
 PyJWT==2.8.0
-openai==1.35.10
-httpx<0.28.0
+openai==1.54.0
