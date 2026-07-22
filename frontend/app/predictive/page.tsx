@@ -219,7 +219,7 @@ export default function PredictivePage() {
                         <div className="flex items-center justify-between">
                           <span className="font-medium text-text">{f.factor}</span>
                           <span className="chip border border-teal/30 bg-teal/10 text-tealGlow text-[9px] uppercase font-bold">
-                            {f.impact} Impact
+                            {f.weight}
                           </span>
                         </div>
                         {f.citation && <p className="text-[10px] text-muted/60 font-mono">{f.citation}</p>}
