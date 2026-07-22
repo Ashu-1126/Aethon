@@ -249,6 +249,29 @@ export interface AssetHealth {
 }
 
 
+export interface ContributingFactor {
+  factor: string;
+  weight: string;
+  citation: string;
+}
+
+export interface MaintenanceAction {
+  action: string;
+  criticality: string;
+  estimated_downtime_hours: number;
+}
+
+export interface AssetForecast {
+  risk_score: number;             // 0–100
+  predicted_failure_window_days: number | null;
+  failure_mode: string;
+  contributing_factors: ContributingFactor[];
+  maintenance_actions: MaintenanceAction[];
+  next_recommended_maintenance: string | null;
+  confidence: number;
+  sources: Source[];
+}
+
 export interface AssetComplianceGap {
   standard: string;
   clause: string;
