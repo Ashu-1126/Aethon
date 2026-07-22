@@ -263,33 +263,126 @@ def answer(query: str, k: int = RETRIEVAL_K) -> dict:
             graph_parts.append(f"  - {from_label} --[{e['relation']}]--> {to_label}")
     graph_context = "\n".join(graph_parts)
 
-    # 5. Generate Answer via LLM
+_EXPLAINABLE_SYSTEM_PROMPT = """\
+You are AETHON, the Chief Industrial Intelligence Engine.
+You must analyze all operational questions with 100% rigorous engineering explainability.
+
+Mandatory Schema:
+Return ONLY valid JSON matching this exact structure:
+{
+  "answer": "Clear, concise direct answer to the query.",
+  "confidence": 88,
+  "reasoning_chain": [
+    "Step 1: Evaluated maintenance logs and found operating temperature at 92°C.",
+    "Step 2: Cross-referenced OEM manual limits (max 80°C).",
+    "Step 3: Concluded thermal overload caused bearing fatigue."
+  ],
+  "supporting_documents": [
+    {"doc_name": "Log-Q3.pdf", "page": 4, "snippet": "Temperature reading 92C"}
+  ],
+  "supporting_graph_nodes": [
+    {"label": "Pump P-204", "type": "asset"},
+    {"label": "OISD-116", "type": "regulation"}
+  ],
+  "conflicting_evidence": [
+    {"conflict": "Shift log states pump was lubricated on June 1st, but work order WO-902 state lubrication was delayed."}
+  ],
+  "decision_explanation": "The recommendation prioritizes immediate bearing replacement because operating above 80°C breaches OISD safety thresholds."
+}
+"""
+
+_EXPLAINABLE_USER_PROMPT = """\
+Retrieved Document Chunks:
+{context}
+
+Knowledge Graph Context:
+{graph_context}
+
+User Query: {query}
+
+JSON Output:"""
+
+
+def answer(query: str, k: int = RETRIEVAL_K) -> dict:
+    """
+    Core RAG function with Mandatory Rigorous Explainability:
+    Returns {answer, confidence, reasoning_chain, supporting_documents, supporting_graph_nodes, conflicting_evidence, decision_explanation, sources}
+    """
+    # 1. Parallel Retrieval
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        future_hits = executor.submit(retrieve, query, k=k)
+        future_graph = executor.submit(_fetch_graph_keyword_match, query)
+        
+        hits = future_hits.result()
+        q_nodes, q_edges = future_graph.result()
+
+    if not hits:
+        return {
+            "answer": "No relevant industrial documentation or logs found for that query.",
+            "confidence": 0,
+            "reasoning_chain": ["No matching vector chunks or document records retrieved."],
+            "supporting_documents": [],
+            "supporting_graph_nodes": [],
+            "conflicting_evidence": [],
+            "decision_explanation": "Execution halted due to empty retrieval set.",
+            "sources": []
+        }
+
+    # 2. Context & Graph Context Assembly
+    context = _compress_context(hits, query)
+
+    from graph import _conn
+    doc_names = list({h["doc_name"] for h in hits})
+    doc_nodes = []
+    try:
+        with _conn() as con:
+            placeholders = ",".join("?" for _ in doc_names)
+            doc_nodes = [dict(r) for r in con.execute(
+                f"SELECT id, label, type FROM nodes WHERE doc_name IN ({placeholders})", doc_names
+            ).fetchall()]
+    except Exception:
+        pass
+
+    merged_nodes = {n["label"]: n for n in doc_nodes + q_nodes}
+    graph_parts = ["Entities:"] + [f"  - {n['label']} ({n['type']})" for n in merged_nodes.values()]
+    graph_context = "\n".join(graph_parts)
+
     messages = [
-        {"role": "system", "content": _SYSTEM_PROMPT},
-        {"role": "user",   "content": _USER_PROMPT.format(context=context, graph_context=graph_context, query=query)},
+        {"role": "system", "content": _EXPLAINABLE_SYSTEM_PROMPT},
+        {"role": "user",   "content": _EXPLAINABLE_USER_PROMPT.format(context=context, graph_context=graph_context, query=query)},
     ]
 
-    resp = client.chat.completions.create(
-        model=LLM_MODEL,
-        messages=messages,
-        temperature=0.1,
-        max_tokens=1024,
-    )
-    raw_answer = resp.choices[0].message.content.strip()
+    try:
+        resp = client.chat.completions.create(
+            model=LLM_MODEL,
+            messages=messages,
+            response_format={"type": "json_object"},
+            temperature=0.1,
+            max_tokens=1536,
+        )
+        raw = resp.choices[0].message.content.strip()
+        raw = re.sub(r"^```(?:json)?\s*", "", raw, flags=re.MULTILINE)
+        raw = re.sub(r"\s*```$", "", raw, flags=re.MULTILINE)
+        parsed = json.loads(raw)
+    except Exception:
+        parsed = {
+            "answer": "Unable to generate structured explainability report.",
+            "confidence": _confidence(hits),
+            "reasoning_chain": ["LLM synthesis call encountered an invalid JSON format."],
+            "supporting_documents": [],
+            "supporting_graph_nodes": [],
+            "conflicting_evidence": [],
+            "decision_explanation": "Fallback execution engaged."
+        }
 
-    # Parse sources and confidence
-    sources = _parse_sources(raw_answer, hits)
-    clean_answer = re.sub(r"\[DOC:[^\]]+\]", "", raw_answer).strip()
-    confidence = _confidence(hits)
+    sources = _parse_sources(parsed.get("answer", ""), hits)
+    parsed["sources"] = sources if sources else [
+        {"doc_name": h["doc_name"], "page": h["page"], "snippet": h["text"][:180]} for h in hits[:2]
+    ]
 
-    # 6. Populate Semantic Cache
-    set_semantic_cache(query, clean_answer or raw_answer, sources, confidence)
+    return parsed
 
-    return {
-        "answer":     clean_answer or raw_answer,
-        "sources":    sources,
-        "confidence": confidence,
-    }
 
 
 # ══════════════════════════════════════════════════════════════════════════

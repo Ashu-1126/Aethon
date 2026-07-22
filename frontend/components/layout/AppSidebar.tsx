@@ -13,26 +13,38 @@ import {
   Target,
   Wrench,
   ShieldCheck,
+  ShieldAlert,
   Brain,
+
   Cable,
   Layers,
   Lock,
   Menu,
   X,
   GitCompareArrows,
+  Factory,
+  SearchCheck,
+  Cpu,
+  LineChart,
+  Flame,
 } from "lucide-react";
 import { health } from "@/lib/api";
 import { ApiError } from "@/lib/api";
 
 const nav = [
   { href: "/",                 label: "Home",              icon: Home },
+  { href: "/heatmap",          label: "Risk Heatmap",      icon: Flame },
+  { href: "/predictive",       label: "Predictive Maintenance", icon: LineChart },
+  { href: "/digital-twin",     label: "Digital Twin",      icon: Cpu },
+  { href: "/assets",           label: "Asset Fleet",       icon: Factory },
+  { href: "/investigation",    label: "Autonomous Investigation", icon: SearchCheck },
   { href: "/dashboard",        label: "Overview",          icon: LayoutDashboard },
   { href: "/copilot",           label: "Copilot",           icon: MessageSquareText },
   { href: "/knowledge-graph",   label: "Knowledge Graph",   icon: Share2 },
   { href: "/rca",               label: "Maintenance & RCA", icon: Wrench },
-  { href: "/compliance",        label: "Compliance",        icon: ShieldCheck },
-  { href: "/conflicts",         label: "Conflicts",         icon: GitCompareArrows },
+  { href: "/emergency",         label: "Emergency Response", icon: ShieldAlert },
   { href: "/knowledge-cliff",   label: "Knowledge Cliff",   icon: Brain },
+
   { href: "/upload",            label: "Documents",         icon: UploadCloud },
   { href: "/integrations",      label: "Integrations",      icon: Cable },
   { href: "/solutions",         label: "Solutions",         icon: Layers },
@@ -86,7 +98,11 @@ function StatusPill() {
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const path = usePathname();
   return (
-    <nav className="flex flex-1 flex-col gap-1" aria-label="Primary">
+    <nav
+      className="flex flex-1 flex-col gap-1 overflow-y-auto pr-1"
+      style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(54,233,210,0.25) transparent" }}
+      aria-label="Primary"
+    >
       {nav.map((n, i) => {
         const active = path === n.href;
         return (
@@ -134,12 +150,16 @@ export function AppSidebar() {
         transition={{ duration: 0.6, ease: "easeOut" }}
         className="fixed left-0 top-0 z-40 hidden h-screen w-60 flex-col border-r border-border bg-base/70 p-4 backdrop-blur-xl md:flex"
       >
-        <Link href="/" className="mb-10 flex items-center gap-2 px-2 pt-2">
+        <Link href="/" className="mb-6 flex shrink-0 items-center gap-2 px-2 pt-2">
           <Hexagon className="h-6 w-6 text-tealGlow drop-shadow-[0_0_8px_rgba(54,233,210,0.6)]" strokeWidth={1.5} />
           <span className="display text-lg font-semibold">AETHON</span>
         </Link>
-        <NavLinks />
-        <StatusPill />
+        <div className="flex min-h-0 flex-1 flex-col">
+          <NavLinks />
+        </div>
+        <div className="shrink-0">
+          <StatusPill />
+        </div>
       </motion.aside>
 
       {/* Mobile top bar — fixed h-14 (56px) to match the pt-14 page offset */}
@@ -178,7 +198,7 @@ export function AppSidebar() {
               aria-label="Navigation"
               className="fixed left-0 top-0 z-50 flex h-screen w-64 flex-col border-r border-border bg-base/95 p-4 backdrop-blur-xl md:hidden"
             >
-              <div className="mb-10 flex items-center justify-between pt-2">
+              <div className="mb-6 flex shrink-0 items-center justify-between pt-2">
                 <Link href="/" onClick={() => setOpen(false)} className="flex items-center gap-2 px-2">
                   <Hexagon className="h-6 w-6 text-tealGlow" strokeWidth={1.5} />
                   <span className="display text-lg font-semibold">AETHON</span>
@@ -191,8 +211,12 @@ export function AppSidebar() {
                   <X className="h-5 w-5" />
                 </button>
               </div>
-              <NavLinks onNavigate={() => setOpen(false)} />
-              <StatusPill />
+              <div className="flex min-h-0 flex-1 flex-col">
+                <NavLinks onNavigate={() => setOpen(false)} />
+              </div>
+              <div className="shrink-0">
+                <StatusPill />
+              </div>
             </motion.aside>
           </>
         )}

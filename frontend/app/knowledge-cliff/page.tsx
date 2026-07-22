@@ -12,12 +12,16 @@ import {
   Hexagon,
   Mic,
   Send,
-  Users,
   Sparkles,
   BookOpen,
+  ShieldAlert,
+  RefreshCw,
+  AlertTriangle,
 } from "lucide-react";
-import { documents } from "@/lib/api";
+import { documents, knowledgeGaps } from "@/lib/api";
+import type { KnowledgeGapItem } from "@/lib/types";
 import { PageHero } from "@/components/layout/PageHero";
+
 
 // ── Types ─────────────────────────────────────────────────────────────────
 type Question = {
@@ -99,28 +103,27 @@ export default function KnowledgeCliffPage() {
     }
   }, []);
 
-  // Persist progress whenever answers / name change.
-  useEffect(() => {
-    try {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({ answers, engineerName })
-      );
-    } catch {
-      /* storage may be unavailable (private mode) — non-fatal */
-    }
-  }, [answers, engineerName]);
+  const [detectedGaps, setDetectedGaps] = useState<KnowledgeGapItem[]>([]);
+  const [scanningGaps, setScanningGaps] = useState(false);
 
-  const allAnswered = QUESTIONS.every(
-    (q) => (answers[q.id] ?? "").trim().length > 10
-  );
-  const progress = Math.round(
-    (QUESTIONS.filter((q) => (answers[q.id] ?? "").trim().length > 10).length /
-      QUESTIONS.length) *
-      100
-  );
+  const runGapAudit = async () => {
+    setScanningGaps(true);
+    try {
+      const res = await knowledgeGaps.scan();
+      setDetectedGaps(res.gaps);
+    } catch {
+      // optional fallback
+    } finally {
+      setScanningGaps(false);
+    }
+  };
+
+  useEffect(() => {
+    runGapAudit();
+  }, []);
 
   async function handleSave() {
+
     setStep("saving");
     // Build a plain-text "document" from the answers and upload it
     const content = [
@@ -188,6 +191,49 @@ export default function KnowledgeCliffPage() {
                 </div>
               </Reveal>
 
+              {/* Automated Knowledge Gap Audit Scanner */}
+              <Reveal delay={0.12}>
+                <div className="mt-8 glass-glow p-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-semibold uppercase tracking-widest text-muted flex items-center gap-2">
+                      <ShieldAlert className="h-4 w-4 text-goldGlow" /> Automated Enterprise Knowledge Gap Audit
+                    </h3>
+                    <button
+                      onClick={runGapAudit}
+                      disabled={scanningGaps}
+                      className="flex items-center gap-1.5 text-xs text-tealGlow hover:underline disabled:opacity-50"
+                    >
+                      <RefreshCw className={`h-3.5 w-3.5 ${scanningGaps ? "animate-spin" : ""}`} /> Re-scan Corpus
+                    </button>
+                  </div>
+
+                  {detectedGaps.length === 0 ? (
+                    <p className="text-xs text-muted/70 py-2">
+                      No documentation voids detected across plant fleet assets.
+                    </p>
+                  ) : (
+                    <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+                      {detectedGaps.map((gap, idx) => (
+                        <div key={idx} className="p-3 rounded-lg border border-gold/20 bg-gold/5 flex items-start justify-between gap-3 text-xs">
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono font-bold text-text">{gap.asset_tag}</span>
+                              <span className="chip border border-gold/30 bg-gold/10 text-goldGlow text-[9px] uppercase font-bold">
+                                {gap.category_label}
+                              </span>
+                            </div>
+                            <p className="text-muted text-[11px]">{gap.description}</p>
+                          </div>
+                          <span className={`chip text-[8px] uppercase font-bold shrink-0 ${gap.severity === 'critical' ? 'bg-danger text-white' : 'bg-gold/20 text-goldGlow'}`}>
+                            {gap.severity}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </Reveal>
+
               {/* Name input */}
               <Reveal delay={0.15}>
                 <div className="mt-8 glass p-6">
@@ -204,6 +250,7 @@ export default function KnowledgeCliffPage() {
                   />
                 </div>
               </Reveal>
+
 
               {/* Question previews */}
               <Stagger className="mt-6 space-y-3">

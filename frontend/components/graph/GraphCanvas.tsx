@@ -4,12 +4,26 @@ import { useMemo, useState } from "react";
 import type { GraphData, GraphNode } from "@/lib/types";
 
 const color: Record<string, string> = {
-  equipment: "#36e9d2",
-  regulation: "#f4d488",
-  procedure: "#1fb8a6",
-  incident: "#e08a8a",
+  asset: "#00d2b4",
+  equipment: "#00d2b4",
   document: "#7fa39c",
+  maintenance: "#a78bfa",
+  inspection: "#60a5fa",
+  sensor: "#f43f5e",
+  incident: "#ef4444",
+  work_order: "#f59e0b",
+  spare_part: "#fbbf24",
+  operator: "#38bdf8",
+  vendor: "#c084fc",
+  regulation: "#fbbf24",
+  rca: "#f472b6",
+  compliance: "#34d399",
+  manual: "#818cf8",
+  procedure: "#1fb8a6",
 };
+
+export const GRAPH_COLORS = color;
+
 
 /** Animation-heavy SVG graph — lazy-loaded client-side. */
 export default function GraphCanvas({

@@ -13,6 +13,19 @@ import type {
   Scoreboard,
   HealthStatus,
   Source,
+  Asset,
+  AssetEvent,
+  AssetHealth,
+  AssetForecast,
+  AssetComplianceResult,
+  InvestigationReport,
+  InvestigationRecord,
+  PdmPrediction,
+  KnowledgeGapItem,
+  WorkOrderPayload,
+  ShiftReportPayload,
+  EmergencyPlanPayload,
+  RiskHeatmapItem,
 } from "./types";
 
 export type RcaResult = {
@@ -49,14 +62,12 @@ async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
     res = await fetch(`${BASE}${path}`, {
       ...init,
       headers: {
-        // don't set JSON content-type for FormData uploads
         ...(init.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
         ...authHeader(),
         ...(init.headers || {}),
       },
     });
   } catch {
-    // fetch only rejects on network-level failure (server down, CORS, DNS)
     throw new ApiError("Backend offline — could not reach the server.", 0, true);
   }
 
@@ -66,7 +77,6 @@ async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
         localStorage.removeItem("aethon_token");
         localStorage.removeItem("aethon_role");
         window.location.href = "/login";
-        // Halt execution to prevent the UI from flickering an error state
         await new Promise(() => {});
       }
     }
@@ -81,7 +91,6 @@ async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
     throw new ApiError(detail, res.status);
   }
 
-  // 204 No Content
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }
@@ -144,6 +153,11 @@ export const documents = {
 export const graph = {
   get: (): Promise<GraphData> =>
     USE_MOCK ? mock.graph() : apiFetch<GraphData>("/graph"),
+
+  traverse: (label: string, depth = 2): Promise<GraphData & { start_label: string; depth: number; total_nodes: number; total_edges: number }> =>
+    apiFetch<GraphData & { start_label: string; depth: number; total_nodes: number; total_edges: number }>(
+      `/graph/traverse?label=${encodeURIComponent(label)}&depth=${depth}`
+    ),
 };
 
 export const compliance = {
@@ -166,6 +180,11 @@ export const conflicts = {
     USE_MOCK
       ? mock.conflicts()
       : apiFetch<{ conflicts: Conflict[] }>("/conflicts").then((r) => r.conflicts),
+
+  rescan: (): Promise<{ conflicts: Conflict[]; message: string }> =>
+    USE_MOCK
+      ? mock.conflicts().then((c) => ({ conflicts: c, message: `${c.length} conflict(s) found.` }))
+      : apiFetch<{ conflicts: Conflict[]; message: string }>("/conflicts/rescan", { method: "POST" }),
 };
 
 export const dashboard = {
@@ -181,6 +200,132 @@ export const scoreboard = {
 export const rca = {
   get: (equipment: string): Promise<RcaResult> =>
     USE_MOCK ? mock.rca(equipment) : apiFetch<RcaResult>(`/rca/${encodeURIComponent(equipment)}`),
+};
+
+export const assets = {
+  list: (params?: { category?: string; criticality?: string }): Promise<Asset[]> => {
+    const qs = params
+      ? "?" + Object.entries(params).filter(([, v]) => v).map(([k, v]) => `${k}=${encodeURIComponent(v!)}`).join("&")
+      : "";
+    return apiFetch<{ assets: Asset[] }>(`/assets${qs}`).then((r) => r.assets);
+  },
+
+  create: (data: {
+    tag: string; name: string; category: string;
+    location?: string; criticality?: string;
+    manufacturer?: string; model_number?: string; install_date?: string;
+  }): Promise<Asset> =>
+    apiFetch<{ asset: Asset }>("/assets", { method: "POST", body: JSON.stringify(data) }).then((r) => r.asset),
+
+  get: (tag: string): Promise<Asset> =>
+    apiFetch<{ asset: Asset }>(`/assets/${encodeURIComponent(tag)}`).then((r) => r.asset),
+
+  update: (tag: string, fields: Partial<Asset>): Promise<Asset> =>
+    apiFetch<{ asset: Asset }>(`/assets/${encodeURIComponent(tag)}`, {
+      method: "PUT", body: JSON.stringify(fields),
+    }).then((r) => r.asset),
+
+  delete: (tag: string): Promise<{ status: string }> =>
+    apiFetch<{ status: string }>(`/assets/${encodeURIComponent(tag)}`, { method: "DELETE" }),
+
+  getEvents: (tag: string): Promise<AssetEvent[]> =>
+    apiFetch<{ events: AssetEvent[] }>(`/assets/${encodeURIComponent(tag)}/events`).then((r) => r.events),
+
+  logEvent: (tag: string, event: {
+    event_type: string; severity: string; title: string; detail?: string; source?: string;
+  }): Promise<AssetEvent> =>
+    apiFetch<{ event: AssetEvent }>(`/assets/${encodeURIComponent(tag)}/events`, {
+      method: "POST", body: JSON.stringify(event),
+    }).then((r) => r.event),
+
+  getDocuments: (tag: string): Promise<string[]> =>
+    apiFetch<{ documents: string[] }>(`/assets/${encodeURIComponent(tag)}/documents`).then((r) => r.documents),
+
+  linkDocument: (tag: string, doc_name: string): Promise<{ status: string }> =>
+    apiFetch<{ status: string }>(`/assets/${encodeURIComponent(tag)}/documents`, {
+      method: "POST", body: JSON.stringify({ doc_name }),
+    }),
+
+  health: (tag: string, force = false): Promise<AssetHealth> =>
+    apiFetch<AssetHealth>(`/assets/${encodeURIComponent(tag)}/health?force=${force}`),
+
+  forecast: (tag: string, force = false): Promise<AssetForecast> =>
+    apiFetch<AssetForecast>(`/assets/${encodeURIComponent(tag)}/forecast?force=${force}`),
+
+  compliance: (tag: string, force = false): Promise<AssetComplianceResult> =>
+    apiFetch<AssetComplianceResult>(`/assets/${encodeURIComponent(tag)}/compliance?force=${force}`),
+
+  scan: (tag: string): Promise<{ alerts_logged: number; message: string }> =>
+    apiFetch<{ alerts_logged: number; message: string }>(`/assets/${encodeURIComponent(tag)}/scan`, { method: "POST" }),
+
+  heatmap: (): Promise<RiskHeatmapItem[]> =>
+    apiFetch<{ heatmap: RiskHeatmapItem[] }>("/risk-heatmap").then((r) => r.heatmap),
+};
+
+export const investigations = {
+  run: (incident_title: string, asset_tag = ""): Promise<InvestigationReport> =>
+    apiFetch<InvestigationReport>("/investigations/run", {
+      method: "POST",
+      body: JSON.stringify({ incident_title, asset_tag }),
+    }),
+
+  list: (asset_tag = ""): Promise<InvestigationRecord[]> =>
+    apiFetch<{ investigations: InvestigationRecord[] }>(
+      `/investigations${asset_tag ? `?asset_tag=${encodeURIComponent(asset_tag)}` : ""}`
+    ).then((r) => r.investigations),
+
+  get: (id: string): Promise<InvestigationRecord> =>
+    apiFetch<InvestigationRecord>(`/investigations/${encodeURIComponent(id)}`),
+};
+
+export const pdm = {
+  getAssetPdm: (tag: string, force = false): Promise<PdmPrediction> =>
+    apiFetch<PdmPrediction>(`/predictive/${encodeURIComponent(tag)}?force=${force}`),
+
+  listAll: (): Promise<PdmPrediction[]> =>
+    apiFetch<{ predictions: PdmPrediction[] }>("/predictive").then((r) => r.predictions),
+};
+
+export const knowledgeGaps = {
+  scan: (): Promise<{ gaps_detected: number; gaps: KnowledgeGapItem[]; message: string }> =>
+    apiFetch<{ gaps_detected: number; gaps: KnowledgeGapItem[]; message: string }>("/knowledge-gaps/scan"),
+};
+
+export const workOrders = {
+  generate: (asset_tag: string, issue_description: string, priority = "medium"): Promise<WorkOrderPayload> =>
+    apiFetch<WorkOrderPayload>("/work-orders/generate", {
+      method: "POST",
+      body: JSON.stringify({ asset_tag, issue_description, priority }),
+    }),
+
+  list: (asset_tag = ""): Promise<WorkOrderPayload[]> =>
+    apiFetch<{ work_orders: WorkOrderPayload[] }>(
+      `/work-orders${asset_tag ? `?asset_tag=${encodeURIComponent(asset_tag)}` : ""}`
+    ).then((r) => r.work_orders),
+};
+
+export const shiftReports = {
+  generate: (shift_name = "Day Shift (06:00 - 18:00)", author_role = "Lead Operations Engineer"): Promise<ShiftReportPayload> =>
+    apiFetch<ShiftReportPayload>("/shift-reports/generate", {
+      method: "POST",
+      body: JSON.stringify({ shift_name, author_role }),
+    }),
+
+  list: (): Promise<ShiftReportPayload[]> =>
+    apiFetch<{ reports: ShiftReportPayload[] }>("/shift-reports").then((r) => r.reports),
+};
+
+export const emergencyPlans = {
+  generate: (hazard_type: string, asset_tag = "P-204"): Promise<EmergencyPlanPayload> =>
+    apiFetch<EmergencyPlanPayload>("/emergency-plans/generate", {
+      method: "POST",
+      body: JSON.stringify({ hazard_type, asset_tag }),
+    }),
+
+  list: (hazard_type = ""): Promise<EmergencyPlanPayload[]> =>
+    apiFetch<{ plans: EmergencyPlanPayload[] }>(
+      `/emergency-plans${hazard_type ? `?hazard_type=${encodeURIComponent(hazard_type)}` : ""}`
+    ).then((r) => r.plans),
 };
 
 export const WS_BASE =

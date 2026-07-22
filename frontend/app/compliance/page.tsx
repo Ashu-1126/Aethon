@@ -53,7 +53,6 @@ function GapItem({ g, i }: { g: { clause: string; issue: string }; i: number }) 
     "bg-gold/10 text-goldGlow border-gold/30", 
     "bg-teal/10 text-tealGlow border-teal/30"
   ];
-  const docs = ["SOP-Env-401.pdf", "Safety-Manual-v2.docx", "Maintenance-Log-Q3.xlsx", "Confined_Space_Protocol.pdf"];
   const sevIdx = i % 3;
 
   async function handleRewrite() {
@@ -97,8 +96,8 @@ function GapItem({ g, i }: { g: { clause: string; issue: string }; i: number }) 
       <p className="pl-1 text-muted leading-relaxed">{g.issue}</p>
       <div className="pl-1 mt-1 flex items-center gap-1.5 text-[10px]">
         <FileText className="h-3 w-3 text-muted/60" />
-        <span className="text-muted/60">Failed Document:</span>
-        <a href="#" className="text-tealGlow hover:underline">{docs[i % docs.length]} - Page {i + 4}</a>
+        <span className="text-muted/60">Clause ref:</span>
+        <span className="text-tealGlow/80 font-mono">{g.clause}</span>
       </div>
 
       <AnimatePresence>
@@ -371,6 +370,45 @@ export default function CompliancePage() {
               )}
             </Reveal>
 
+            {/* Predicted Future Compliance Violations */}
+            <Reveal delay={0.12}>
+              <div className="glass-glow mt-8 p-6 space-y-4">
+                <h2 className="display text-lg font-semibold flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-goldGlow" /> Predicted Future Compliance Violations
+                </h2>
+                <p className="text-xs text-muted">
+                  AI continuous forecasting cross-referencing maintenance schedules, hydrostatic test intervals, and regulatory deadlines.
+                </p>
+
+                {loading || !audit ? (
+                  <Skeleton className="h-32 w-full rounded-xl" />
+                ) : !audit.predicted_future_violations || audit.predicted_future_violations.length === 0 ? (
+                  <div className="p-4 rounded-xl border border-teal/30 bg-teal/5 text-xs text-tealGlow">
+                    ✓ No upcoming compliance violation risks detected within the 90-day window.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {audit.predicted_future_violations.map((pv, idx) => (
+                      <div key={idx} className="p-4 rounded-xl border border-gold/30 bg-gold/5 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-mono text-xs font-bold text-text">{pv.asset_tag}</span>
+                          <span className={`chip text-[9px] font-bold uppercase ${pv.risk_level === 'critical' ? 'bg-danger text-white' : 'bg-gold/20 text-goldGlow'}`}>
+                            {pv.risk_level} • {pv.days_remaining} Days Remaining
+                          </span>
+                        </div>
+                        <h4 className="text-sm font-semibold text-text">{pv.potential_violation}</h4>
+                        <div className="text-xs text-muted/80 space-y-1 pt-1 border-t border-white/5">
+                          <p><span className="text-goldGlow font-semibold">Recommended Action: </span>{pv.recommended_action}</p>
+                          <p><span className="text-text font-semibold">Supporting Regulation: </span><span className="font-mono text-tealGlow">{pv.supporting_regulations}</span></p>
+                          {pv.evidence_ref && <p className="text-[10px] text-muted/60 font-mono">Ref: {pv.evidence_ref}</p>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </Reveal>
+
             {/* Quick compliance check */}
             <Reveal delay={0.15}>
               <div className="glass-glow mt-8 p-6">
@@ -379,6 +417,7 @@ export default function CompliancePage() {
                   <h2 className="display text-lg font-semibold">
                     Quick Compliance Check
                   </h2>
+
                 </div>
                 <p className="mb-4 text-sm text-muted">
                   Paste any procedure text and the agent will immediately check

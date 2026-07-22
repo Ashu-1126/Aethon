@@ -19,9 +19,11 @@ import {
   Clock,
   Send,
 } from "lucide-react";
-import { rca as rcaApi } from "@/lib/api";
-import type { Source } from "@/lib/types";
+import { rca as rcaApi, assets as assetsApi, workOrders as workOrdersApi } from "@/lib/api";
+import type { Source, Asset, WorkOrderPayload } from "@/lib/types";
 import { PageHero } from "@/components/layout/PageHero";
+import { ShieldCheck, HardHat, Wrench as ToolIcon, CheckSquare, Clock as DurationIcon, Users as ManpowerIcon, AlertCircle, Loader2 } from "lucide-react";
+
 
 // ── Types ───────────────────────────────────────────────────────────────────
 type FailureEvent = {
@@ -55,27 +57,38 @@ const TAG_COLORS: Record<string, string> = {
   pressure:    "border-purple-400/40 bg-purple-400/10 text-purple-400",
 };
 
-const EQUIPMENT = [
-  { id: "Pump P-204", name: "Pump P-204", location: "Unit 4, Cooling", criticality: "Class A", status: "critical" },
-  { id: "Compressor K-101", name: "Compressor K-101", location: "Unit 2, Gas Plant", criticality: "Class B", status: "warning" },
-  { id: "Heat Exchanger E-301", name: "Heat Exchanger E-301", location: "Unit 1, Refining", criticality: "Class A", status: "healthy" },
-  { id: "Boiler B-12", name: "Boiler B-12", location: "Power Gen", criticality: "Class A", status: "healthy" },
-];
-
-const QUERIES: Record<string, string> = {
-  "Pump P-204":          "Why did Pump P-204 fail three times? What is the root cause?",
-  "Compressor K-101":    "What maintenance failures has Compressor K-101 experienced?",
-  "Heat Exchanger E-301":"Are there maintenance issues with Heat Exchanger E-301?",
-  "Boiler B-12":         "What are the root causes of Boiler B-12 incidents?",
-};
-
 // ═══════════════════════════════════════════════════════════════════════════
 export default function RCAPage() {
   const [selected, setSelected] = useState("Pump P-204");
+  const [fleetAssets, setFleetAssets] = useState<Asset[]>([]);
   const [rca, setRca] = useState<RcaResult>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const [expanded, setExpanded] = useState<number | null>(null);
+  const [activeWo, setActiveWo] = useState<WorkOrderPayload | null>(null);
+  const [generatingWo, setGeneratingWo] = useState(false);
+
+  const handleGenerateWorkOrder = async () => {
+    if (!selected) return;
+    setGeneratingWo(true);
+    try {
+      const wo = await workOrdersApi.generate(selected, `Overhaul & Inspection for ${selected}`, "high");
+      setActiveWo(wo);
+    } catch {
+      // optional fallback
+    } finally {
+      setGeneratingWo(false);
+    }
+  };
+
+  useEffect(() => {
+
+    assetsApi.list().then((list) => {
+      if (list.length > 0) {
+        setFleetAssets(list);
+      }
+    }).catch(() => {});
+  }, []);
 
   const runRca = useCallback(async (equipment: string) => {
     setLoading(true);
@@ -94,6 +107,19 @@ export default function RCAPage() {
   useEffect(() => {
     runRca(selected);
   }, [selected, runRca]);
+
+  const equipmentList = fleetAssets.length > 0 ? fleetAssets.map(a => ({
+    id: a.tag,
+    name: `${a.tag} (${a.name})`,
+    location: a.location || "Plant Bay",
+    criticality: a.criticality.toUpperCase(),
+    status: a.status === "degraded" || a.status === "offline" ? "critical" : "healthy",
+  })) : [
+    { id: "Pump P-204", name: "Pump P-204", location: "Unit 4, Cooling", criticality: "CLASS A", status: "critical" },
+    { id: "Compressor K-101", name: "Compressor K-101", location: "Unit 2, Gas Plant", criticality: "CLASS B", status: "warning" },
+    { id: "Heat Exchanger E-301", name: "Heat Exchanger E-301", location: "Unit 1, Refining", criticality: "CLASS A", status: "healthy" },
+    { id: "Boiler B-12", name: "Boiler B-12", location: "Power Gen", criticality: "CLASS A", status: "healthy" },
+  ];
 
   return (
     <div className="min-h-screen">
@@ -114,7 +140,7 @@ export default function RCAPage() {
         {/* Equipment Selector */}
         <Reveal delay={0.1}>
           <div className="mt-8 grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:gap-4">
-            {EQUIPMENT.map((eq) => (
+            {equipmentList.map((eq) => (
               <button
                 key={eq.id}
                 id={`rca-eq-${eq.id.replace(/\s+/g, "-").toLowerCase()}`}
@@ -300,31 +326,167 @@ export default function RCAPage() {
           </Reveal>
         </div>
 
-        {/* Conflict Highlight Card */}
-        {selected === "Pump P-204" && (
-          <Reveal delay={0.2}>
-            <div className="glass mt-6 border-gold/30 p-5">
-              <div className="flex items-start gap-3">
-                <span className="flex h-9 w-9 flex-none items-center justify-center rounded-lg border border-gold/30 bg-gold/10 text-goldGlow">
-                  <Zap className="h-4 w-4" />
-                </span>
-                <div>
-                  <p className="text-sm font-semibold text-goldGlow">
-                    ⚠ Document Conflict Detected
-                  </p>
-                  <p className="mt-1 text-sm text-muted">
-                    <span className="font-mono text-text">OEM_Pump_Manual.pdf</span> (Sec 3.1) mandates
-                    lubrication every{" "}
-                    <span className="font-medium text-tealGlow">60 days</span>, but{" "}
-                    <span className="font-mono text-text">MP-12.docx</span> (Section 4.2.1, Paragraph 3) specifies{" "}
-                    <span className="font-medium text-danger">90 days</span>. This 30-day
-                    gap directly correlates with all three bearing failures.
-                  </p>
-                </div>
+        {/* Work Order Generator Engine */}
+        <Reveal delay={0.25}>
+          <div className="glass-glow mt-8 p-6 space-y-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-white/5 pb-4">
+              <div>
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-text flex items-center gap-2">
+                  <Wrench className="h-4 w-4 text-tealGlow" /> Automated Maintenance Work Order Generator
+                </h3>
+                <p className="text-xs text-muted mt-0.5">
+                  Generate complete safety-compliant work orders with tools, spare parts, PPE, LOTO checklists, & shutdown requirements.
+                </p>
               </div>
+              <button
+                onClick={handleGenerateWorkOrder}
+                disabled={generatingWo}
+                className="flex items-center gap-2 rounded-lg bg-teal/20 border border-teal/40 px-5 py-2 text-xs font-semibold text-tealGlow hover:bg-teal/30 disabled:opacity-40 shrink-0"
+              >
+                {generatingWo ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Synthesizing Work Order…
+                  </>
+                ) : (
+                  <>
+                    <Zap className="h-3.5 w-3.5" /> Generate Work Order
+                  </>
+                )}
+              </button>
             </div>
-          </Reveal>
-        )}
+
+            {activeWo && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-6"
+              >
+                {/* WO Header Banner */}
+                <div className="flex items-center justify-between gap-4 p-4 rounded-xl border border-teal/30 bg-teal/5 flex-wrap">
+                  <div className="flex items-center gap-3">
+                    <span className="font-mono text-base font-bold text-tealGlow">{activeWo.wo_id}</span>
+                    <span className="chip border border-white/10 bg-white/5 text-text font-mono text-xs">
+                      Asset: {activeWo.asset_tag}
+                    </span>
+                    <span className="chip border border-teal/30 bg-teal/10 text-tealGlow text-[10px] uppercase font-bold">
+                      {activeWo.priority} Priority
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-4 text-xs font-mono text-muted">
+                    <span className="flex items-center gap-1">
+                      <DurationIcon className="h-3.5 w-3.5 text-goldGlow" /> Est. {activeWo.estimated_duration_hours} hrs
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <AlertCircle className={`h-3.5 w-3.5 ${activeWo.shutdown_required ? 'text-danger' : 'text-tealGlow'}`} />
+                      Shutdown: {activeWo.shutdown_required ? "REQUIRED" : "NOT REQUIRED"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Manpower & PPE Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Manpower */}
+                  <div className="p-4 rounded-xl border border-white/5 bg-white/3 space-y-2">
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-muted flex items-center gap-1.5">
+                      <ManpowerIcon className="h-3.5 w-3.5 text-tealGlow" /> Required Manpower
+                    </h4>
+                    <ul className="space-y-1.5 text-xs text-text">
+                      {activeWo.required_manpower?.map((m, i) => (
+                        <li key={i} className="flex justify-between border-b border-white/5 pb-1">
+                          <span>{m.role}</span>
+                          <span className="font-mono font-bold text-tealGlow">{m.count} Technician(s)</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* Required PPE */}
+                  <div className="p-4 rounded-xl border border-white/5 bg-white/3 space-y-2">
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-muted flex items-center gap-1.5">
+                      <HardHat className="h-3.5 w-3.5 text-goldGlow" /> Mandatory PPE
+                    </h4>
+                    <ul className="space-y-1 text-xs text-muted/90">
+                      {activeWo.required_ppe?.map((ppe, i) => (
+                        <li key={i} className="flex items-center gap-1.5">
+                          <span className="h-1.5 w-1.5 rounded-full bg-goldGlow" /> {ppe}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Tools & Parts Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Required Tools */}
+                  <div className="p-4 rounded-xl border border-white/5 bg-white/3 space-y-2">
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-muted flex items-center gap-1.5">
+                      <ToolIcon className="h-3.5 w-3.5 text-tealGlow" /> Specialized Tools
+                    </h4>
+                    <ul className="space-y-1 text-xs text-text">
+                      {activeWo.required_tools?.map((t, i) => (
+                        <li key={i} className="flex items-center gap-1.5">
+                          <span className="font-mono text-tealGlow font-bold">#</span> {t}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* Required Spare Parts */}
+                  <div className="p-4 rounded-xl border border-white/5 bg-white/3 space-y-2">
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-muted flex items-center gap-1.5">
+                      <Wrench className="h-3.5 w-3.5 text-violet-400" /> Spare Parts & Materials
+                    </h4>
+                    <ul className="space-y-1.5 text-xs text-text">
+                      {activeWo.required_parts?.map((p, i) => (
+                        <li key={i} className="flex justify-between border-b border-white/5 pb-1">
+                          <span>{p.description} <span className="font-mono text-[10px] text-muted">({p.part_number})</span></span>
+                          <span className="font-mono font-bold text-violet-400">x{p.quantity}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Safety Checklist & Dependencies */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Safety Checklist */}
+                  <div className="p-4 rounded-xl border border-danger/20 bg-danger/5 space-y-2">
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-danger flex items-center gap-1.5">
+                      <CheckSquare className="h-3.5 w-3.5 text-danger" /> Mandatory Safety Checklist (LOTO)
+                    </h4>
+                    <ul className="space-y-1.5 text-xs text-text">
+                      {activeWo.safety_checklist?.map((chk, i) => (
+                        <li key={i} className="flex items-start gap-2">
+                          <span className="h-4 w-4 rounded border border-danger/40 bg-danger/10 text-danger flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">
+                            ✓
+                          </span>
+                          <span>{chk}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* Dependencies */}
+                  <div className="p-4 rounded-xl border border-gold/20 bg-gold/5 space-y-2">
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-goldGlow flex items-center gap-1.5">
+                      <ShieldCheck className="h-3.5 w-3.5 text-goldGlow" /> Operational Dependencies
+                    </h4>
+                    <ul className="space-y-1.5 text-xs text-muted/90">
+                      {activeWo.dependencies?.map((dep, i) => (
+                        <li key={i} className="flex items-start gap-2">
+                          <span className="text-goldGlow font-mono text-xs">→</span>
+                          <span>{dep}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </div>
+        </Reveal>
+
       </PageContainer>
     </div>
   );

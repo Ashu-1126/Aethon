@@ -87,15 +87,242 @@ def init_db() -> None:
                 recorded_at TEXT
             );
         """)
-        # Migration for existing databases
-        try:
-            con.execute("ALTER TABLE chat_history ADD COLUMN sources TEXT")
-        except Exception:
-            pass
-        try:
-            con.execute("ALTER TABLE chat_history ADD COLUMN confidence INTEGER DEFAULT 0")
-        except Exception:
-            pass
+        # ── Migration: chat_history columns ──────────────────────────────────
+        for alter in [
+            "ALTER TABLE chat_history ADD COLUMN sources TEXT",
+            "ALTER TABLE chat_history ADD COLUMN confidence INTEGER DEFAULT 0",
+        ]:
+            try:
+                con.execute(alter)
+            except Exception:
+                pass
+
+        # ── Asset Registry tables (idempotent) ────────────────────────────────
+        con.executescript("""
+            CREATE TABLE IF NOT EXISTS assets (
+                id           TEXT PRIMARY KEY,
+                tag          TEXT UNIQUE NOT NULL,
+                name         TEXT NOT NULL,
+                category     TEXT NOT NULL,
+                location     TEXT,
+                criticality  TEXT DEFAULT 'medium',
+                status       TEXT DEFAULT 'operational',
+                manufacturer TEXT,
+                model_number TEXT,
+                install_date TEXT,
+                created_at   TEXT NOT NULL,
+                updated_at   TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS asset_documents (
+                asset_id TEXT NOT NULL,
+                doc_name TEXT NOT NULL,
+                PRIMARY KEY (asset_id, doc_name)
+            );
+            CREATE TABLE IF NOT EXISTS asset_events (
+                id         TEXT PRIMARY KEY,
+                asset_id   TEXT NOT NULL,
+                event_type TEXT NOT NULL,
+                severity   TEXT NOT NULL,
+                title      TEXT NOT NULL,
+                detail     TEXT,
+                source     TEXT,
+                timestamp  TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_asset_tag       ON assets(tag);
+            CREATE INDEX IF NOT EXISTS idx_asset_events_id ON asset_events(asset_id);
+        """)
+        # ── Migration: add columns to assets if DB existed before ─────────────
+        for alter in [
+            "ALTER TABLE assets ADD COLUMN manufacturer TEXT",
+            "ALTER TABLE assets ADD COLUMN model_number TEXT",
+            "ALTER TABLE assets ADD COLUMN install_date TEXT",
+        ]:
+            try:
+                con.execute(alter)
+            except Exception:
+                pass
+
+
+# ── Asset Registry CRUD ──────────────────────────────────────────────────────
+
+def add_asset(
+    tag: str,
+    name: str,
+    category: str,
+    location: str = "",
+    criticality: str = "medium",
+    manufacturer: str = "",
+    model_number: str = "",
+    install_date: str = "",
+) -> dict:
+    """Create a new asset record. Returns the created asset dict."""
+    import time as _time
+    init_db()
+    now = _time.strftime("%Y-%m-%dT%H:%M:%SZ", _time.gmtime())
+    asset_id = str(uuid.uuid4())[:12]
+    with _write_lock:
+        with _conn() as con:
+            con.execute(
+                """INSERT INTO assets
+                   (id, tag, name, category, location, criticality, status,
+                    manufacturer, model_number, install_date, created_at, updated_at)
+                   VALUES (?,?,?,?,?,?,'operational',?,?,?,?,?)""",
+                (asset_id, tag.upper(), name, category, location, criticality,
+                 manufacturer, model_number, install_date, now, now),
+            )
+    return get_asset(tag)
+
+
+def get_assets(category: str = None, criticality: str = None) -> list[dict]:
+    """List all assets, optionally filtered."""
+    init_db()
+    with _conn() as con:
+        query = "SELECT * FROM assets"
+        params: list = []
+        filters = []
+        if category:
+            filters.append("category = ?")
+            params.append(category)
+        if criticality:
+            filters.append("criticality = ?")
+            params.append(criticality)
+        if filters:
+            query += " WHERE " + " AND ".join(filters)
+        query += " ORDER BY criticality DESC, tag ASC"
+        rows = con.execute(query, params).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_asset(tag: str) -> dict | None:
+    """Get a single asset by plant tag (case-insensitive)."""
+    init_db()
+    with _conn() as con:
+        row = con.execute(
+            "SELECT * FROM assets WHERE UPPER(tag) = UPPER(?)", (tag,)
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def update_asset(tag: str, **fields) -> dict | None:
+    """Update arbitrary fields on an asset. Returns updated asset or None."""
+    import time as _time
+    if not fields:
+        return get_asset(tag)
+    init_db()
+    allowed = {"name", "category", "location", "criticality", "status",
+                "manufacturer", "model_number", "install_date"}
+    safe_fields = {k: v for k, v in fields.items() if k in allowed}
+    if not safe_fields:
+        return get_asset(tag)
+    now = _time.strftime("%Y-%m-%dT%H:%M:%SZ", _time.gmtime())
+    safe_fields["updated_at"] = now
+    set_clause = ", ".join(f"{k} = ?" for k in safe_fields)
+    values = list(safe_fields.values()) + [tag.upper()]
+    with _write_lock:
+        with _conn() as con:
+            con.execute(
+                f"UPDATE assets SET {set_clause} WHERE UPPER(tag) = UPPER(?)", values
+            )
+    return get_asset(tag)
+
+
+def delete_asset(tag: str) -> bool:
+    """Delete an asset and all its events/document links."""
+    init_db()
+    asset = get_asset(tag)
+    if not asset:
+        return False
+    with _write_lock:
+        with _conn() as con:
+            con.execute("DELETE FROM asset_events   WHERE asset_id = ?", (asset["id"],))
+            con.execute("DELETE FROM asset_documents WHERE asset_id = ?", (asset["id"],))
+            con.execute("DELETE FROM assets          WHERE id = ?", (asset["id"],))
+    return True
+
+
+def add_asset_event(
+    tag: str,
+    event_type: str,
+    severity: str,
+    title: str,
+    detail: str = "",
+    source: str = "",
+) -> dict | None:
+    """Log an event (alert/maintenance/inspection/incident) for an asset."""
+    import time as _time
+    init_db()
+    asset = get_asset(tag)
+    if not asset:
+        return None
+    event_id = str(uuid.uuid4())
+    now = _time.strftime("%Y-%m-%dT%H:%M:%SZ", _time.gmtime())
+    with _write_lock:
+        with _conn() as con:
+            con.execute(
+                """INSERT INTO asset_events
+                   (id, asset_id, event_type, severity, title, detail, source, timestamp)
+                   VALUES (?,?,?,?,?,?,?,?)""",
+                (event_id, asset["id"], event_type, severity, title, detail, source, now),
+            )
+    return {
+        "id": event_id, "asset_id": asset["id"], "event_type": event_type,
+        "severity": severity, "title": title, "detail": detail,
+        "source": source, "timestamp": now,
+    }
+
+
+def get_asset_events(tag: str, limit: int = 50) -> list[dict]:
+    """Get event timeline for an asset (most recent first)."""
+    init_db()
+    asset = get_asset(tag)
+    if not asset:
+        return []
+    with _conn() as con:
+        rows = con.execute(
+            """SELECT * FROM asset_events WHERE asset_id = ?
+               ORDER BY timestamp DESC LIMIT ?""",
+            (asset["id"], limit),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def link_asset_document(tag: str, doc_name: str) -> None:
+    """Associate a document with an asset (idempotent)."""
+    init_db()
+    asset = get_asset(tag)
+    if not asset:
+        return
+    with _write_lock:
+        with _conn() as con:
+            con.execute(
+                "INSERT OR IGNORE INTO asset_documents (asset_id, doc_name) VALUES (?,?)",
+                (asset["id"], doc_name),
+            )
+
+
+def get_asset_documents(tag: str) -> list[str]:
+    """Get list of document names linked to an asset."""
+    init_db()
+    asset = get_asset(tag)
+    if not asset:
+        return []
+    with _conn() as con:
+        rows = con.execute(
+            "SELECT doc_name FROM asset_documents WHERE asset_id = ?", (asset["id"],)
+        ).fetchall()
+        return [r[0] for r in rows]
+
+
+def get_asset_by_graph_label(label: str) -> dict | None:
+    """Try to match a graph node label to an asset tag (fuzzy: tag substring match)."""
+    init_db()
+    with _conn() as con:
+        rows = con.execute("SELECT tag FROM assets").fetchall()
+        label_upper = label.upper()
+        for row in rows:
+            if row[0].upper() in label_upper or label_upper in row[0].upper():
+                return get_asset(row[0])
+    return None
 
 
 def add_custom_metric(metric_id: str, doc_name: str, val: float) -> None:
@@ -154,29 +381,30 @@ def delete_document_from_db(doc_id: str) -> Optional[str]:
 # ── LLM extraction ──────────────────────────────────────────────────────────
 
 _EXTRACT_PROMPT = """\
-You are an industrial knowledge extraction engine.
-Given the following text from a document called "{doc_name}", extract:
-1. Entities: machines, equipment, regulations, procedures, incidents, standards, persons.
-2. Relationships between entities.
+You are an enterprise industrial knowledge graph extraction engine.
+Given the text from document "{doc_name}", extract:
+1. Entities: asset, document, maintenance, inspection, sensor, incident, work_order, spare_part, operator, vendor, regulation, rca, compliance, manual.
+2. Relationships connecting industrial entities to assets or related operations.
 
-Return ONLY valid JSON in this exact format:
+Return ONLY valid JSON:
 {{
   "entities": [
-    {{"label": "Pump P-204", "type": "equipment"}},
+    {{"label": "Pump P-204", "type": "asset"}},
+    {{"label": "WO-89241", "type": "work_order"}},
+    {{"label": "Bearing SKF-6205", "type": "spare_part"}},
     {{"label": "OISD-116 §7.2", "type": "regulation"}}
   ],
   "relations": [
+    {{"from": "Pump P-204", "to": "WO-89241", "relation": "serviced_by"}},
+    {{"from": "WO-89241", "to": "Bearing SKF-6205", "relation": "replaces_part"}},
     {{"from": "Pump P-204", "to": "OISD-116 §7.2", "relation": "governed_by"}}
   ]
 }}
 
-Valid entity types: equipment, regulation, procedure, incident, document
-Valid relation types: governed_by, operated_via, must_comply, involved_in, documented_by, serviced_by, references, conflicts_with, caused_by
+Valid entity types: asset, document, maintenance, inspection, sensor, incident, work_order, spare_part, operator, vendor, regulation, rca, compliance, manual, equipment, procedure
+Valid relation types: governed_by, operated_via, must_comply, involved_in, documented_by, serviced_by, references, conflicts_with, caused_by, replaces_part, monitored_by, supplied_by, inspected_by, assigned_to
+"""
 
-TEXT:
-{text}
-
-JSON:"""
 
 
 def _extract_entities_from_chunk(text: str, doc_name: str) -> dict:
@@ -463,3 +691,82 @@ def clear_chat_history(username: str) -> None:
     init_db()
     with _conn() as con:
         con.execute("DELETE FROM chat_history WHERE username=?", (username,))
+
+
+# ── Semantic Traversal & Asset Memory Graph ─────────────────────────────────
+
+def traverse_asset_memory_graph(start_label: str, depth: int = 2) -> dict:
+    """
+    Perform multi-hop semantic graph traversal originating from an Asset or Entity label.
+    Traverses outward up to 'depth' hops to return a focused subgraph of connected:
+    Assets -> Documents -> Maintenance -> Inspections -> Sensors -> Incidents -> Work Orders -> Spare Parts -> Vendors -> Regulations -> RCA -> Compliance.
+    """
+    init_db()
+    visited_node_ids = set()
+    visited_edge_ids = set()
+    
+    nodes_out = []
+    edges_out = []
+
+    with _conn() as con:
+        # Match starting node by label or substring
+        start_rows = con.execute(
+            "SELECT * FROM nodes WHERE UPPER(label) LIKE UPPER(?)",
+            (f"%{start_label}%",)
+        ).fetchall()
+
+        current_level_ids = {r["id"] for r in start_rows}
+        for r in start_rows:
+            visited_node_ids.add(r["id"])
+            nodes_out.append(dict(r))
+
+        for _ in range(depth):
+            if not current_level_ids:
+                break
+
+            placeholders = ",".join("?" for _ in current_level_ids)
+            id_list = list(current_level_ids)
+
+            edge_rows = con.execute(
+                f"SELECT * FROM edges WHERE from_id IN ({placeholders}) OR to_id IN ({placeholders})",
+                id_list + id_list
+            ).fetchall()
+
+            next_level_ids = set()
+            for e in edge_rows:
+                e_dict = dict(e)
+                if e_dict["id"] not in visited_edge_ids:
+                    visited_edge_ids.add(e_dict["id"])
+                    edges_out.append({
+                        "from": e_dict["from_id"],
+                        "to": e_dict["to_id"],
+                        "relation": e_dict["relation"],
+                        "doc_name": e_dict.get("doc_name", "")
+                    })
+
+                if e_dict["from_id"] not in visited_node_ids:
+                    next_level_ids.add(e_dict["from_id"])
+                if e_dict["to_id"] not in visited_node_ids:
+                    next_level_ids.add(e_dict["to_id"])
+
+            if next_level_ids:
+                next_placeholders = ",".join("?" for _ in next_level_ids)
+                node_rows = con.execute(
+                    f"SELECT * FROM nodes WHERE id IN ({next_placeholders})",
+                    list(next_level_ids)
+                ).fetchall()
+
+                for n in node_rows:
+                    visited_node_ids.add(n["id"])
+                    nodes_out.append(dict(n))
+
+            current_level_ids = next_level_ids
+
+    return {
+        "start_label": start_label,
+        "depth": depth,
+        "nodes": nodes_out,
+        "edges": edges_out,
+        "total_nodes": len(nodes_out),
+        "total_edges": len(edges_out)
+    }

@@ -45,10 +45,14 @@ export default function KnowledgeGraph() {
   const [data, setData] = useState<GraphData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [traversalLabel, setTraversalLabel] = useState("");
+  const [depth, setDepth] = useState(2);
+  const [traverserActive, setTraverserActive] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(false);
+    setTraverserActive(false);
     try {
       setData(await graph.get());
     } catch {
@@ -58,59 +62,43 @@ export default function KnowledgeGraph() {
     }
   }, []);
 
+  const handleTraverse = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!traversalLabel.trim()) return;
+    setLoading(true);
+    setError(false);
+    try {
+      const sub = await graph.traverse(traversalLabel, depth);
+      setData(sub);
+      setTraverserActive(true);
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     load();
   }, [load]);
 
-  const nodes = useMemo(() => (data ? layout(data.nodes, data.edges) : []), [data]);
+  const positioned = useMemo(() => layout(data?.nodes ?? [], data?.edges ?? []), [data]);
 
   return (
     <div className="min-h-screen">
       <AppSidebar />
-      <PageContainer 
+      <PageContainer
         size="wide"
         hero={
-          <PageHero 
-            badgeLabel="✦ Graph"
-            badgeText="Relationships"
-            title1="The connections"
-            title2="no team can hold"
-            description="Every entity — equipment, regulation, procedure, incident — linked into one traversable structure. Hover a node to trace its connections."
+          <PageHero
+            badgeLabel="❖ Unified Memory Graph"
+            badgeText="Enterprise Asset Context"
+            title1="Assets,"
+            title2="at the center."
+            description="The Unified Asset Memory Graph interconnects Assets, Manuals, Maintenance Logs, Inspections, Sensors, Incidents, Work Orders, Spare Parts, Operators, Vendors, Regulations, RCA, and Compliance."
           />
         }
       >
-
-          {error ? (
-            <div className="mt-8">
-              <ErrorState
-                message="Couldn't load the knowledge graph. The backend may be offline."
-                onRetry={load}
-              />
-            </div>
-          ) : loading ? (
-            <Skeleton className="mt-8 aspect-[3/4] w-full rounded-2xl sm:aspect-[16/10]" />
-          ) : !data || data.nodes.length === 0 ? (
-            <div className="mt-8">
-              <EmptyState
-                icon={Share2}
-                title="No graph yet"
-                message="Ingest documents first — entities and relationships will appear here automatically."
-              />
-            </div>
-          ) : (
-            <>
-              <Reveal dir="scale" delay={0.2}>
-                <GraphCanvas data={data} nodes={nodes} />
-              </Reveal>
-
-              {/* legend */}
-              <Reveal delay={0.3}>
-                <div className="mt-6 flex flex-wrap gap-4">
-                  {Object.entries(GRAPH_COLORS).map(([k, v]) => (
-                    <div key={k} className="flex items-center gap-2 text-xs text-muted">
-                      <span className="h-2.5 w-2.5 rounded-full" style={{ background: v }} />
-                      <span className="capitalize">{k}</span>
-                    </div>
                   ))}
                 </div>
               </Reveal>

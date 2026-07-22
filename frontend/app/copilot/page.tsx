@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useState, useRef, useEffect } from "react";
 import { Send, FileText, Sparkles, Hexagon, AlertTriangle, Database, Cpu, ArrowRight } from "lucide-react";
 import { copilot, ApiError } from "@/lib/api";
-import type { Source } from "@/lib/types";
+import type { Source, SupportingDoc, SupportingGraphNode, ConflictingItem } from "@/lib/types";
 import ReactMarkdown from "react-markdown";
 
 type Msg = {
@@ -13,6 +13,11 @@ type Msg = {
   text: string;
   sources?: Source[];
   confidence?: number;
+  reasoning_chain?: string[];
+  supporting_documents?: SupportingDoc[];
+  supporting_graph_nodes?: SupportingGraphNode[];
+  conflicting_evidence?: ConflictingItem[];
+  decision_explanation?: string;
   error?: boolean;
 };
 
@@ -21,6 +26,7 @@ const suggestions = [
   "Which procedures violate OISD-116?",
   "Does SOP-44 comply with confined-space entry law?",
 ];
+
 
 /**
  * SparkUnderline — a half-width underline under the headline with a bright
@@ -236,12 +242,18 @@ export default function Copilot() {
               text: res.answer,
               sources: res.sources ?? [],
               confidence: res.confidence,
+              reasoning_chain: res.reasoning_chain,
+              supporting_documents: res.supporting_documents,
+              supporting_graph_nodes: res.supporting_graph_nodes,
+              conflicting_evidence: res.conflicting_evidence,
+              decision_explanation: res.decision_explanation,
             }
           : {
               role: "ai",
               text: "No relevant information found in the corpus for that question. Try rephrasing, or ingest more documents.",
             },
       ]);
+
     } catch (e) {
       const msg =
         e instanceof ApiError && e.offline
@@ -314,17 +326,67 @@ export default function Copilot() {
                     aria-live={m.role === "ai" ? "polite" : undefined}
                   >
                     {m.role === "ai" ? (
-                      <ReactMarkdown
-                        components={{
-                          p: ({node, ...props}) => <p className="mb-3 last:mb-0" {...props} />,
-                          ul: ({node, ...props}) => <ul className="mb-3 list-disc space-y-1 pl-5 last:mb-0" {...props} />,
-                          ol: ({node, ...props}) => <ol className="mb-3 list-decimal space-y-1 pl-5 last:mb-0" {...props} />,
-                          li: ({node, ...props}) => <li className="pl-1" {...props} />,
-                          strong: ({node, ...props}) => <strong className="font-semibold text-white/90" {...props} />,
-                        }}
-                      >
-                        {m.text}
-                      </ReactMarkdown>
+                      <div className="space-y-3">
+                        <ReactMarkdown
+                          components={{
+                            p: ({node, ...props}) => <p className="mb-3 last:mb-0" {...props} />,
+                            ul: ({node, ...props}) => <ul className="mb-3 list-disc space-y-1 pl-5 last:mb-0" {...props} />,
+                            ol: ({node, ...props}) => <ol className="mb-3 list-decimal space-y-1 pl-5 last:mb-0" {...props} />,
+                            li: ({node, ...props}) => <li className="pl-1" {...props} />,
+                            strong: ({node, ...props}) => <strong className="font-semibold text-white/90" {...props} />,
+                          }}
+                        >
+                          {m.text}
+                        </ReactMarkdown>
+
+                        {/* Reasoning Chain */}
+                        {m.reasoning_chain && m.reasoning_chain.length > 0 && (
+                          <div className="rounded-lg border border-white/5 bg-white/3 p-3 text-xs space-y-1">
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-tealGlow block mb-1">
+                              Reasoning Chain
+                            </span>
+                            <ol className="list-decimal space-y-1 pl-4 text-muted/90">
+                              {m.reasoning_chain.map((step, idx) => (
+                                <li key={idx}>{step}</li>
+                              ))}
+                            </ol>
+                          </div>
+                        )}
+
+                        {/* Supporting Graph Nodes */}
+                        {m.supporting_graph_nodes && m.supporting_graph_nodes.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 pt-1">
+                            <span className="text-[10px] text-muted/60 block w-full uppercase">Supporting Graph Nodes:</span>
+                            {m.supporting_graph_nodes.map((gn, idx) => (
+                              <span key={idx} className="chip border border-teal/30 bg-teal/10 text-tealGlow font-mono text-[9px]">
+                                {gn.label} ({gn.type})
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Conflicting Evidence */}
+                        {m.conflicting_evidence && m.conflicting_evidence.length > 0 && (
+                          <div className="rounded-lg border border-gold/30 bg-gold/5 p-3 text-xs space-y-1">
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-goldGlow block">
+                              Conflicting Evidence Detected
+                            </span>
+                            {m.conflicting_evidence.map((c, idx) => (
+                              <p key={idx} className="text-muted/80">{c.conflict}</p>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Decision Explanation */}
+                        {m.decision_explanation && (
+                          <div className="rounded-lg border border-teal/20 bg-teal/5 p-3 text-xs">
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-tealGlow block mb-1">
+                              Decision Rationale
+                            </span>
+                            <p className="text-text/90 leading-relaxed">{m.decision_explanation}</p>
+                          </div>
+                        )}
+                      </div>
                     ) : (
                       <p className="whitespace-pre-wrap">{m.text}</p>
                     )}
@@ -361,6 +423,7 @@ export default function Copilot() {
                         )}
                       </>
                     )}
+
                   </div>
                 </motion.div>
               ))}
