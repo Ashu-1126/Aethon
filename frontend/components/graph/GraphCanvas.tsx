@@ -204,5 +204,3 @@ export default function GraphCanvas({
     </div>
   );
 }
-
-export const GRAPH_COLORS = color;
