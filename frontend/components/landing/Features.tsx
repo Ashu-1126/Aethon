@@ -81,7 +81,7 @@ const features: Feature[] = [
     href: "/dashboard",
     days: "Cross-document",
     hours: "Pre-incident",
-    image: "/img66.jpeg",
+    image: "/img66.png",
   },
   {
     title: "Knowledge Cliff Capture",
