@@ -12,6 +12,16 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const persistSession = (token: string, role: string) => {
+    localStorage.setItem("aethon_token", token);
+    localStorage.setItem("aethon_role", role);
+  };
+
+  const enterDemoSession = () => {
+    persistSession("demo-token", "admin");
+    router.replace("/");
+  };
+
   // Demo mode: ?demo=1 auto-authenticates with the shared dev credentials
   // so judges can reach the app without typing. Frontend-only convenience.
   useEffect(() => {
@@ -21,13 +31,12 @@ export default function LoginPage() {
         setLoading(true);
         try {
           const res = await auth.login("admin", "password123");
-          localStorage.setItem("aethon_token", res.token);
-          localStorage.setItem("aethon_role", res.role);
+          persistSession(res.token, res.role);
           router.replace("/");
         } catch {
           // If the backend is unreachable, still drop the user into the app
           // (mock mode / demo) so the UI is explorable.
-          router.replace("/");
+          enterDemoSession();
         } finally {
           setLoading(false);
         }
@@ -42,11 +51,12 @@ export default function LoginPage() {
 
     try {
       const res = await auth.login(username, password);
-      localStorage.setItem("aethon_token", res.token);
-      localStorage.setItem("aethon_role", res.role);
+      persistSession(res.token, res.role);
       router.replace("/");
     } catch (err) {
-      if (err instanceof ApiError) {
+      if (err instanceof ApiError && err.offline) {
+        enterDemoSession();
+      } else if (err instanceof ApiError) {
         setError(err.message);
       } else {
         setError("Failed to connect to the server.");
