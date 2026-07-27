@@ -81,7 +81,7 @@ const features: Feature[] = [
     href: "/dashboard",
     days: "Cross-document",
     hours: "Pre-incident",
-    image: "/img66.png",
+    image: "/img66.jpeg",
   },
   {
     title: "Knowledge Cliff Capture",
@@ -184,9 +184,8 @@ function FeatureRow({ items }: { items: Feature[] }) {
             <Link href={f.href} className="block h-full">
               <motion.article
                 layout
-                className={`group relative h-64 overflow-hidden rounded-[2rem] border sm:h-full ${
-                  isActive ? "border-teal/40 shadow-glow-teal" : "border-border"
-                }`}
+                className={`group relative h-64 overflow-hidden rounded-[2rem] border sm:h-full ${isActive ? "border-teal/40 shadow-glow-teal" : "border-border"
+                  }`}
               >
                 {/* background image */}
                 <div
