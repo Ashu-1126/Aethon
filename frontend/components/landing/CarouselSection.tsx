@@ -22,7 +22,7 @@ const ZONES: Zone[] = [
     title: "Refinery Unit-4",
     blurb: "Coke-oven battery · live gas + permit monitoring",
     image:
-      "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=80",
+      "/img4.png",
     metric: "24/7",
     metricLabel: "compound-risk watch",
     facts: ["Gas + hot-work permit fusion", "Evacuation in < 10 min", "OISD-116 enforced"],
@@ -31,7 +31,7 @@ const ZONES: Zone[] = [
     title: "Processing Plant",
     blurb: "Pressure vessels · vibration + thermal intelligence",
     image:
-      "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&w=1200&q=80",
+      "/img3.png",
     metric: "92%",
     metricLabel: "compliance coverage",
     facts: ["Predictive maintenance", "RCA on recurring failures", "PESO vessel checks"],
@@ -40,7 +40,7 @@ const ZONES: Zone[] = [
     title: "Control Room",
     blurb: "Command center · unified operations brain",
     image:
-      "https://images.unsplash.com/photo-1581092160562-40aa08e78837?auto=format&fit=crop&w=1200&q=80",
+      "/img5.png",
     metric: "4,182",
     metricLabel: "documents indexed",
     facts: ["Cited copilot answers", "Live knowledge graph", "Audit packages on demand"],
@@ -49,7 +49,7 @@ const ZONES: Zone[] = [
     title: "Storage & Dispatch",
     blurb: "Tank farm · confined-space permit intelligence",
     image:
-      "https://images.unsplash.com/photo-1504917595217-d4dc5ebe6122?auto=format&fit=crop&w=1200&q=80",
+      "/img2.png",
     metric: "0",
     metricLabel: "missed near-misses",
     facts: ["Confined-space entry checks", "Oxygen + H₂S fusion", "Conflict detection"],
@@ -58,7 +58,7 @@ const ZONES: Zone[] = [
     title: "Maintenance Bay",
     blurb: "Workshop · work-order & manual intelligence",
     image:
-      "https://images.unsplash.com/photo-1530124566582-a618bc2615dc?auto=format&fit=crop&w=1200&q=80",
+      "/img1.png",
     metric: "200×",
     metricLabel: "faster than manual search",
     facts: ["OEM manual lookup", "Torque-spec conflict alerts", "Work-order history"],

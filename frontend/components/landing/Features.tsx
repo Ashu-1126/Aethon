@@ -36,7 +36,7 @@ const features: Feature[] = [
     href: "/upload",
     days: "Every format",
     hours: "Auto-indexed",
-    image: "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1400&q=80",
+    image: "/img44.png",
   },
   {
     title: "Knowledge Graph",
@@ -45,7 +45,7 @@ const features: Feature[] = [
     href: "/knowledge-graph",
     days: "38,914 links",
     hours: "Live & growing",
-    image: "https://images.unsplash.com/photo-1639762681485-074b7f938ba0?auto=format&fit=crop&w=1400&q=80",
+    image: "/img22.png",
   },
   {
     title: "Expert Copilot",
@@ -54,7 +54,7 @@ const features: Feature[] = [
     href: "/copilot",
     days: "Cited answers",
     hours: "94% precision",
-    image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1400&q=80",
+    image: "/img33.png",
   },
   {
     title: "Maintenance & RCA",
@@ -63,7 +63,7 @@ const features: Feature[] = [
     href: "/copilot",
     days: "Root-cause analysis",
     hours: "Predictive",
-    image: "https://images.unsplash.com/photo-1565043666747-69f6646db940?auto=format&fit=crop&w=1400&q=80",
+    image: "/img11.png",
   },
   {
     title: "Compliance Agent",
@@ -72,7 +72,7 @@ const features: Feature[] = [
     href: "/dashboard",
     days: "OISD · DGMS · PESO",
     hours: "Audit-ready",
-    image: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=1400&q=80",
+    image: "/img55.png",
   },
   {
     title: "Conflict Detector",
@@ -81,7 +81,7 @@ const features: Feature[] = [
     href: "/dashboard",
     days: "Cross-document",
     hours: "Pre-incident",
-    image: "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1400&q=80",
+    image: "/img66.png",
   },
   {
     title: "Knowledge Cliff Capture",
@@ -92,7 +92,7 @@ const features: Feature[] = [
     days: "Tacit → structured",
     hours: "Never lost",
     image:
-      "https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?auto=format&fit=crop&w=1400&q=80",
+      "/img77.png",
   },
   {
     title: "Failure Intelligence",
@@ -103,7 +103,7 @@ const features: Feature[] = [
     days: "Systemic patterns",
     hours: "Pre-emptive",
     image:
-      "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1400&q=80",
+      "/img88.png",
   },
 ];
 
