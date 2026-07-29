@@ -151,7 +151,7 @@ def calculate_asset_pdm(
             )}],
             response_format={"type": "json_object"},
             temperature=0.1,
-            max_tokens=1536,
+            max_tokens=2560,
         )
         raw = resp.choices[0].message.content.strip()
         raw = re.sub(r"^```(?:json)?\s*", "", raw, flags=re.MULTILINE)

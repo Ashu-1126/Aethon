@@ -101,7 +101,7 @@ def compliance_audit() -> dict:
             messages=[{"role": "user", "content": _COMPLIANCE_PROMPT.format(context=context)}],
             response_format={"type": "json_object"},
             temperature=0.0,
-            max_tokens=2048,
+            max_tokens=3000,
         )
         raw = resp.choices[0].message.content.strip()
         result = json.loads(raw)
@@ -219,7 +219,7 @@ def detect_conflicts(force_rescan: bool = False) -> list[dict]:
             messages=[{"role": "user", "content": _CONFLICT_PROMPT.format(context=context)}],
             response_format={"type": "json_object"},
             temperature=0.0,
-            max_tokens=2048,
+            max_tokens=3000,
         )
         raw = resp.choices[0].message.content.strip()
         result = json.loads(raw)

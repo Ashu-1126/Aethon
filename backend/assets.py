@@ -408,11 +408,29 @@ def calculate_factory_risk_heatmap() -> list[dict]:
     """
     from graph import get_assets, get_asset_events
     from predictive import calculate_asset_pdm
+    from concurrent.futures import ThreadPoolExecutor
 
     fleet = get_assets()
     heatmap = []
 
-    for a in fleet:
+    # PdM calls hit the LLM and are independent per-asset, so run them
+    # concurrently instead of serially — otherwise N assets means N sequential
+    # LLM round-trips (each several seconds), which was making this endpoint
+    # take minutes and appear to hang.
+    def _fetch_pdm(a):
+        tag = a["tag"]
+        crit = (a.get("criticality") or "medium").lower()
+        status = (a.get("status") or "operational").lower()
+        try:
+            pdm = calculate_asset_pdm(tag, a["name"], status=status, criticality=crit)
+            return pdm.get("failure_probability_percentage", 20), pdm.get("health_score", 80)
+        except Exception:
+            return 25, 75
+
+    with ThreadPoolExecutor(max_workers=min(8, max(1, len(fleet)))) as executor:
+        pdm_results = list(executor.map(_fetch_pdm, fleet))
+
+    for a, (fail_prob, health) in zip(fleet, pdm_results):
         tag = a["tag"]
         name = a["name"]
         crit = (a.get("criticality") or "medium").lower()
@@ -424,16 +442,7 @@ def calculate_factory_risk_heatmap() -> list[dict]:
         # 2. Operational Status Penalty
         status_penalty = 40 if status == "offline" else 30 if status == "degraded" else 15 if status == "maintenance" else 0
 
-        # 3. PdM Failure Probability & RUL
-        try:
-            pdm = calculate_asset_pdm(tag, name, status=status, criticality=crit)
-            fail_prob = pdm.get("failure_probability_percentage", 20)
-            health = pdm.get("health_score", 80)
-        except Exception:
-            fail_prob = 25
-            health = 75
-
-        # 4. Recent Events & Sensor Anomalies
+        # 3. Recent Events & Sensor Anomalies
         events = get_asset_events(tag, limit=10)
         recent_crit_events = sum(1 for e in events if e.get("severity") in ("critical", "high"))
 

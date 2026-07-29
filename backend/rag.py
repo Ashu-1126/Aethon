@@ -188,81 +188,6 @@ def _compress_context(hits: list[dict], query: str) -> str:
     return "\n\n".join(compressed_parts)
 
 
-def answer(query: str, k: int = RETRIEVAL_K) -> dict:
-    """
-    Core RAG function.
-    Uses Semantic Cache, Parallel Retrieval, and Context Compression.
-    """
-    # 1. Semantic Cache Check
-    from embeddings import check_semantic_cache, set_semantic_cache
-    cached_val = check_semantic_cache(query)
-    if cached_val is not None:
-        return cached_val
-
-    # 2. Parallel Retrieval
-    from concurrent.futures import ThreadPoolExecutor
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        future_hits = executor.submit(retrieve, query, k=k)
-        future_graph = executor.submit(_fetch_graph_keyword_match, query)
-        
-        hits = future_hits.result()
-        q_nodes, q_edges = future_graph.result()
-
-    if not hits:
-        return {
-            "answer": (
-                "No relevant information found in the corpus for that question. "
-                "Please ingest documents first, or try rephrasing."
-            ),
-            "sources": [],
-            "confidence": 0,
-        }
-
-    # 3. Context Compression
-    context = _compress_context(hits, query)
-
-    # 4. Integrate SQLite Graph Context (Doc-specific + Keyword-specific)
-    from graph import _conn
-    doc_names = list({h["doc_name"] for h in hits})
-    doc_nodes = []
-    doc_edges = []
-    try:
-        with _conn() as con:
-            placeholders = ",".join("?" for _ in doc_names)
-            doc_nodes = [dict(r) for r in con.execute(
-                f"SELECT id, label, type FROM nodes WHERE doc_name IN ({placeholders})", doc_names
-            ).fetchall()]
-            doc_edges = [dict(r) for r in con.execute(
-                f"SELECT from_id, to_id, relation FROM edges WHERE doc_name IN ({placeholders})", doc_names
-            ).fetchall()]
-    except Exception:
-        pass
-
-    # Merge nodes and edges
-    merged_nodes = {n["id"]: n for n in doc_nodes + q_nodes}
-    merged_edges = []
-    seen_edges = set()
-    for e in doc_edges + q_edges:
-        edge_key = f"{e['from_id']}:{e['to_id']}:{e['relation']}"
-        if edge_key not in seen_edges:
-            seen_edges.add(edge_key)
-            merged_edges.append(e)
-
-    # Build Graph context text
-    graph_parts = []
-    id_to_label = {nid: n["label"] for nid, n in merged_nodes.items()}
-    if merged_nodes:
-        graph_parts.append("Knowledge Graph Entities:")
-        for n in merged_nodes.values():
-            graph_parts.append(f"  - {n['label']} ({n['type']})")
-    if merged_edges:
-        graph_parts.append("Relationships:")
-        for e in merged_edges:
-            from_label = id_to_label.get(e["from_id"], e["from_id"])
-            to_label = id_to_label.get(e["to_id"], e["to_id"])
-            graph_parts.append(f"  - {from_label} --[{e['relation']}]--> {to_label}")
-    graph_context = "\n".join(graph_parts)
-
 _EXPLAINABLE_SYSTEM_PROMPT = """\
 You are AETHON, the Chief Industrial Intelligence Engine.
 You must analyze all operational questions with 100% rigorous engineering explainability.
@@ -308,7 +233,20 @@ def answer(query: str, k: int = RETRIEVAL_K) -> dict:
     Core RAG function with Mandatory Rigorous Explainability:
     Returns {answer, confidence, reasoning_chain, supporting_documents, supporting_graph_nodes, conflicting_evidence, decision_explanation, sources}
     """
-    # 1. Parallel Retrieval
+    # 1. Semantic Cache Check — skips the LLM entirely for near-duplicate
+    # queries (e.g. re-asking the same question, or two users asking the
+    # same thing), which is the single biggest lever on perceived latency.
+    from embeddings import check_semantic_cache, set_semantic_cache
+    cached = check_semantic_cache(query)
+    if cached is not None:
+        try:
+            parsed = json.loads(cached["answer"])
+            parsed["cached"] = True
+            return parsed
+        except Exception:
+            pass
+
+    # 2. Parallel Retrieval
     from concurrent.futures import ThreadPoolExecutor
     with ThreadPoolExecutor(max_workers=2) as executor:
         future_hits = executor.submit(retrieve, query, k=k)
@@ -359,7 +297,7 @@ def answer(query: str, k: int = RETRIEVAL_K) -> dict:
             messages=messages,
             response_format={"type": "json_object"},
             temperature=0.1,
-            max_tokens=1536,
+            max_tokens=3000,
         )
         raw = resp.choices[0].message.content.strip()
         raw = re.sub(r"^```(?:json)?\s*", "", raw, flags=re.MULTILINE)
@@ -380,6 +318,14 @@ def answer(query: str, k: int = RETRIEVAL_K) -> dict:
     parsed["sources"] = sources if sources else [
         {"doc_name": h["doc_name"], "page": h["page"], "snippet": h["text"][:180]} for h in hits[:2]
     ]
+
+    # Only cache well-formed answers — never cache the degraded fallback,
+    # or a bad LLM response would keep getting served for every rephrase.
+    if "reasoning_chain" in parsed and parsed.get("confidence", 0) > 0:
+        try:
+            set_semantic_cache(query, json.dumps(parsed), parsed["sources"], parsed.get("confidence", 0))
+        except Exception:
+            pass
 
     return parsed
 

@@ -7,10 +7,18 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import sys
 import time
 import uuid
 from pathlib import Path
 from typing import Optional
+
+# Windows' console defaults to cp1252, which can't encode the emoji used in
+# several log messages (e.g. embeddings.py) and crashes the process on
+# import before it can serve a single request. Force UTF-8 stdout/stderr.
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
 
 import aiofiles
 from fastapi import FastAPI, File, HTTPException, UploadFile, WebSocket, WebSocketDisconnect, Depends
