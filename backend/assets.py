@@ -515,9 +515,9 @@ def scan_enterprise_knowledge_gaps() -> list[dict]:
     """
     from graph import get_assets, add_asset_event
     from embeddings import retrieve
+    from concurrent.futures import ThreadPoolExecutor
 
     fleet = get_assets()
-    detected_gaps = []
 
     required_categories = {
         "sop": ("Standard Operating Procedure (SOP)", "SOP procedure operation step execution"),
@@ -528,40 +528,48 @@ def scan_enterprise_knowledge_gaps() -> list[dict]:
         "emergency": ("Emergency Shutdown & Safety Procedures", "emergency shutdown ESD hazard evacuation fire safety protocol"),
     }
 
-    for a in fleet:
-        tag = a["tag"]
-        name = a["name"]
+    # (asset, cat_key) pairs are independent existence checks against the
+    # vector store — no LLM reasoning needed, so rerank=False skips a wasted
+    # reranking LLM call per lookup, and running them concurrently instead of
+    # in a nested serial loop (asset x category = 48 calls for 8 assets) is
+    # what actually made this endpoint slow.
+    jobs = [(a, cat_key, cat_label, cat_query)
+            for a in fleet
+            for cat_key, (cat_label, cat_query) in required_categories.items()]
 
-        for cat_key, (cat_label, cat_query) in required_categories.items():
-            query = f"{tag} {cat_query}"
-            chunks = retrieve(query, k=3)
+    def _check_gap(job):
+        a, cat_key, cat_label, cat_query = job
+        tag, name = a["tag"], a["name"]
+        chunks = retrieve(f"{tag} {cat_query}", k=3, rerank=False)
+        valid_chunks = [c for c in chunks if c.get("score", 0) > 45]
+        if valid_chunks:
+            return None
+        severity = "critical" if cat_key in ("emergency", "compliance") else "high" if cat_key in ("sop", "manual") else "medium"
+        return {
+            "asset_tag": tag,
+            "asset_name": name,
+            "gap_category": cat_key,
+            "category_label": cat_label,
+            "severity": severity,
+            "title": f"Missing {cat_label} for {tag}",
+            "description": f"No valid {cat_label} found in knowledge corpus for {tag} ({name}). Operational and compliance risks detected.",
+            "recommended_action": f"Upload official {cat_label} document for {tag}."
+        }
 
-            # High confidence threshold for chunk match
-            valid_chunks = [c for c in chunks if c.get("score", 0) > 45]
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        results = list(executor.map(_check_gap, jobs))
 
-            if not valid_chunks:
-                severity = "critical" if cat_key in ("emergency", "compliance") else "high" if cat_key in ("sop", "manual") else "medium"
-                gap_item = {
-                    "asset_tag": tag,
-                    "asset_name": name,
-                    "gap_category": cat_key,
-                    "category_label": cat_label,
-                    "severity": severity,
-                    "title": f"Missing {cat_label} for {tag}",
-                    "description": f"No valid {cat_label} found in knowledge corpus for {tag} ({name}). Operational and compliance risks detected.",
-                    "recommended_action": f"Upload official {cat_label} document for {tag}."
-                }
-                detected_gaps.append(gap_item)
+    detected_gaps = [g for g in results if g is not None]
 
-                # Automatically log an asset event alert
-                add_asset_event(
-                    tag=tag,
-                    event_type="alert",
-                    severity=severity,
-                    title=gap_item["title"],
-                    detail=gap_item["description"],
-                    source="Knowledge Gap Auto-Scanner"
-                )
+    for gap_item in detected_gaps:
+        add_asset_event(
+            tag=gap_item["asset_tag"],
+            event_type="alert",
+            severity=gap_item["severity"],
+            title=gap_item["title"],
+            detail=gap_item["description"],
+            source="Knowledge Gap Auto-Scanner",
+        )
 
     return detected_gaps
 
