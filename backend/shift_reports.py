@@ -136,8 +136,12 @@ def generate_shift_report(
         raise HTTPException(status_code=503, detail=f"Shift report generator error: {str(e)}")
 
     report_id = f"SHIFT-{str(uuid.uuid4())[:6].upper()}"
+    now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     rep["report_id"] = report_id
-    rep["created_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    rep["created_at"] = now
+    # The LLM has no real wall-clock to draw from, so it was copying the
+    # prompt's illustrative example timestamp verbatim into every report.
+    rep["timestamp"] = now
 
     # Save to SQLite
     with _write_lock:

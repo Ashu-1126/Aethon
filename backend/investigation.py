@@ -195,7 +195,7 @@ def run_autonomous_investigation(incident_title: str, asset_tag: str = "") -> di
             )}],
             response_format={"type": "json_object"},
             temperature=0.1,
-            max_tokens=2048,
+            max_tokens=3000,
         )
         raw = resp.choices[0].message.content.strip()
         raw = re.sub(r"^```(?:json)?\s*", "", raw, flags=re.MULTILINE)
