@@ -161,8 +161,8 @@ export const graph = {
 };
 
 export const compliance = {
-  audit: (): Promise<ComplianceAudit> =>
-    USE_MOCK ? mock.compliance() : apiFetch<ComplianceAudit>("/compliance/audit"),
+  audit: (force = false): Promise<ComplianceAudit> =>
+    USE_MOCK ? mock.compliance() : apiFetch<ComplianceAudit>(`/compliance/audit${force ? "?force=true" : ""}`),
 
   rewrite: async (clause: string, issue: string): Promise<{ rewrite: string }> => {
     if (USE_MOCK) {

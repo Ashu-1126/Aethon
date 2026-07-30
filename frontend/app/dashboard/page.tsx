@@ -54,23 +54,20 @@ export default function Dashboard() {
       setLoading(false);
     }
 
-    // Live open-conflict count (drives the KPI card). Fetched independently
-    // so an LLM hiccup here never blanks the whole dashboard.
-    try {
-      const c = await conflicts.list();
-      setConflictCount(c.length);
-    } catch {
-      setConflictCount(0);
-    }
-
-    // Load compliance separately (takes longer due to LLM)
-    try {
-      const a = await compliance.audit();
-      setAudit(a);
-    } catch {
-      // If compliance fails, we don't break the whole dashboard
-      console.error("Failed to load compliance audit");
-    }
+    // Conflicts and compliance don't depend on each other or on stats, so
+    // fetch them concurrently instead of one after another. Each is wrapped
+    // independently so a failure/slow LLM response in one never blocks or
+    // blanks the other.
+    await Promise.all([
+      conflicts
+        .list()
+        .then((c) => setConflictCount(c.length))
+        .catch(() => setConflictCount(0)),
+      compliance
+        .audit()
+        .then((a) => setAudit(a))
+        .catch(() => console.error("Failed to load compliance audit")),
+    ]);
   }, []);
 
   useEffect(() => {

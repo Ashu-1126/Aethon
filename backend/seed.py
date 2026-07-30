@@ -13,14 +13,54 @@ from ingest import load_and_chunk, _infer_doc_type
 from embeddings import embed_and_store
 from graph import add_chunks_to_graph, init_db, add_document_to_db, get_documents_from_db
 
-def seed_database():
+
+# Fixed demo fleet. Render's free tier has no persistent disk, so local
+# SQLite/Chroma stores are wiped on every restart (idle spin-down, redeploy).
+# Rather than showing an empty asset dropdown after every restart, re-seed
+# this fixture fleet if the assets table is empty. Never touches anything if
+# assets already exist.
+DEMO_ASSETS = [
+    ("M-801", "Conveyor Drive Motor", "Motor", "Packaging Line", "medium", "Siemens", "Simotics-SD"),
+    ("P-204", "Feed Pump", "Pump", "Process Area A", "high", "Grundfos", "CR-64"),
+    ("V-301", "Pressure Vessel", "Vessel", "Boiler House", "critical", "Thermax", "PV-3000"),
+    ("C-102", "Air Compressor", "Compressor", "Utility Block", "high", "Atlas Copco", "GA-90"),
+    ("B-101", "Boiler Unit", "Boiler", "Boiler House", "critical", "Cleaver-Brooks", "CB-700"),
+    ("F-501", "Fire Extinguisher Station A", "Safety", "Zone A", "medium", "Kidde", "ABC-10"),
+    ("MON-C03", "CO2/O2 Monitor", "Sensor", "Zone C", "high", "Honeywell", "BW-Ultra"),
+    ("HVAC-01", "HVAC Unit", "HVAC", "Admin Block", "low", "Carrier", "30XA"),
+]
+
+
+def seed_demo_assets() -> int:
+    """Insert the demo fleet if the assets table is currently empty. Returns count inserted."""
+    from graph import get_assets, add_asset
+
+    if get_assets():
+        return 0
+
+    for tag, name, category, location, criticality, manufacturer, model_number in DEMO_ASSETS:
+        add_asset(
+            tag=tag, name=name, category=category, location=location,
+            criticality=criticality, manufacturer=manufacturer, model_number=model_number,
+        )
+    return len(DEMO_ASSETS)
+
+
+def seed_database(limit: int | None = None):
+    """Index every file in corpus/ that isn't already indexed.
+
+    limit: if set, only process the first N unindexed files. Used for the
+    startup auto-heal (deployment) so it re-populates a usable demo corpus
+    quickly instead of re-embedding everything, which is slow and expensive
+    (each doc is an LLM embedding call per chunk).
+    """
     # Try multiple paths to find corpus directory
     possible_paths = [
         Path("../corpus"),
         Path("corpus"),
         Path(__file__).resolve().parent.parent / "corpus",
     ]
-    
+
     corpus_dir = None
     for p in possible_paths:
         if p.exists() and p.is_dir():
@@ -47,6 +87,8 @@ def seed_database():
     # Find all docs in corpus
     supported_extensions = {".pdf", ".docx", ".txt", ".csv", ".xlsx", ".html", ".htm"}
     files = [p for p in corpus_dir.glob("*") if p.suffix.lower() in supported_extensions]
+    if limit is not None:
+        files = files[:limit]
 
     print(f"Found {len(files)} documents to index.")
 

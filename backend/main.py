@@ -123,6 +123,34 @@ def _recover_orphaned_docs() -> None:
 
 _recover_orphaned_docs()
 
+
+def _self_heal_demo_data() -> None:
+    """Re-populate demo assets + a couple of sample docs if storage came up
+    empty (e.g. after a Render free-tier restart wiped the ephemeral disk).
+    Asset seeding is fast (local DB only); corpus seeding calls the LLM for
+    embeddings, so it runs in a background thread so it never blocks startup
+    or the health check.
+    """
+    import threading
+    from seed import seed_demo_assets, seed_database
+    from embeddings import count as vec_count
+
+    try:
+        n = seed_demo_assets()
+        if n:
+            print(f"[Self-heal] Seeded {n} demo assets (asset store was empty).")
+    except Exception as e:
+        print(f"[Self-heal] Asset seeding skipped: {e}")
+
+    try:
+        if vec_count() == 0:
+            threading.Thread(target=seed_database, kwargs={"limit": 3}, daemon=True).start()
+    except Exception as e:
+        print(f"[Self-heal] Corpus seeding skipped: {e}")
+
+
+_self_heal_demo_data()
+
 _ingest_semaphore: asyncio.Semaphore | None = None
 
 async def _get_ingest_semaphore() -> asyncio.Semaphore:
@@ -345,11 +373,11 @@ async def traverse_graph_endpoint(label: str, depth: int = 2, user: dict = Depen
 
 # ── 6. COMPLIANCE & CONFLICTS ────────────────────────────────────────────────
 @app.get("/compliance/audit")
-async def get_compliance(user: dict = Depends(get_current_user)):
+async def get_compliance(force: bool = False, user: dict = Depends(get_current_user)):
     if vec_count() == 0:
         return {"overall_score": 0, "standards": []}
     loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, compliance_audit)
+    return await loop.run_in_executor(None, lambda: compliance_audit(force=force))
 
 class RewriteRequest(BaseModel):
     clause: str

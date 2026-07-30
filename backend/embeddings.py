@@ -18,6 +18,18 @@ from typing import Any
 
 import chromadb
 from chromadb.config import Settings
+
+# chromadb 0.5.x ships a posthog telemetry client whose capture() signature
+# doesn't match what chromadb calls it with, so every collection op logs a
+# spurious "Failed to send telemetry event" error even with
+# anonymized_telemetry=False. Neutralize it at the source instead of living
+# with the log noise.
+try:
+    from chromadb.telemetry.product.posthog import Posthog
+    Posthog.capture = lambda *args, **kwargs: None
+except Exception:
+    pass
+
 from config import (
     CHROMA_PATH, CHROMA_URL, CHROMA_CLOUD_API_KEY, CHROMA_TENANT,
     CHROMA_DATABASE, COLLECTION, EMBED_MODEL, RETRIEVAL_K, LLM_MODEL, client,

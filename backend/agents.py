@@ -79,8 +79,19 @@ JSON:"""
 
 
 
-def compliance_audit() -> dict:
-    """Run compliance check against all indexed procedures and regulations."""
+def compliance_audit(force: bool = False) -> dict:
+    """Run compliance check against all indexed procedures and regulations.
+
+    Serves the cached result (TTL 1h) unless force=True, mirroring
+    detect_conflicts(). This endpoint is hit on every dashboard page load,
+    so without a cache-first check every visit re-triggers a ~60-90s LLM
+    call — the single biggest source of perceived UI lag.
+    """
+    if not force:
+        cached = _cache_get("compliance")
+        if cached is not None:
+            return cached
+
     proc_chunks  = retrieve("procedure safety monitoring entry permit", k=4)
     reg_chunks   = retrieve("Factory Act OISD DGMS PESO regulation compliance", k=4)
     all_chunks   = proc_chunks + reg_chunks
