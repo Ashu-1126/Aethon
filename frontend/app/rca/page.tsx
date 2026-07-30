@@ -6,56 +6,34 @@ import { Reveal, Stagger, StaggerItem } from "@/components/motion/Reveal";
 import { Counter } from "@/components/ui/Counter";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ErrorState } from "@/components/ui/ErrorState";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { useEffect, useState, useCallback } from "react";
 import {
   Wrench,
   AlertTriangle,
   FileText,
-  ChevronDown,
-  ChevronUp,
   Zap,
   GitBranch,
   Clock,
   Send,
 } from "lucide-react";
-import { rca as rcaApi, assets as assetsApi, workOrders as workOrdersApi } from "@/lib/api";
+import { rca as rcaApi, assets as assetsApi, workOrders as workOrdersApi, ApiError } from "@/lib/api";
 import type { Source, Asset, WorkOrderPayload } from "@/lib/types";
 import { PageHero } from "@/components/layout/PageHero";
 import { ShieldCheck, HardHat, Wrench as ToolIcon, CheckSquare, Clock as DurationIcon, Users as ManpowerIcon, AlertCircle, Loader2 } from "lucide-react";
 
 
 // ── Types ───────────────────────────────────────────────────────────────────
-type FailureEvent = {
-  date: string;
-  description: string;
-  procedure: string;
-  tag: "bearing" | "lubrication" | "vibration" | "pressure";
-  woId: string;
-  reporter: string;
-  priority: "Critical" | "High" | "Medium";
-  cost: string;
-};
-
 type RcaResult = {
   answer: string;
   sources: Source[];
   confidence: number;
 } | null;
 
-// ── Mock failure timeline (real backend will populate from work-order chunks) ──
-const PUMP_FAILURES: FailureEvent[] = [
-  { date: "2026-01-14", description: "Bearing seizure — 3-hour downtime", procedure: "MP-12", tag: "bearing", woId: "WO-89241", reporter: "J. Doe", priority: "Critical", cost: "$4,500" },
-  { date: "2026-03-22", description: "Excessive vibration, scheduled replacement", procedure: "MP-12", tag: "vibration", woId: "WO-91024", reporter: "M. Smith", priority: "High", cost: "$1,200" },
-  { date: "2026-06-08", description: "Bearing failure — same root signature", procedure: "MP-12", tag: "bearing", woId: "WO-95011", reporter: "J. Doe", priority: "Critical", cost: "$6,200" },
-];
-
-const TAG_COLORS: Record<string, string> = {
-  bearing:     "border-danger/40 bg-danger/10 text-danger",
-  lubrication: "border-gold/40 bg-gold/10 text-goldGlow",
-  vibration:   "border-teal/40 bg-teal/10 text-tealGlow",
-  pressure:    "border-purple-400/40 bg-purple-400/10 text-purple-400",
-};
+// "no_data": backend has no indexed documents for this equipment (404) —
+// a normal, expected state, not an error. "offline": the request never
+// reached the backend at all.
+type RcaErrorKind = null | "no_data" | "offline" | "other";
 
 // ═══════════════════════════════════════════════════════════════════════════
 export default function RCAPage() {
@@ -63,8 +41,7 @@ export default function RCAPage() {
   const [fleetAssets, setFleetAssets] = useState<Asset[]>([]);
   const [rca, setRca] = useState<RcaResult>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(false);
-  const [expanded, setExpanded] = useState<number | null>(null);
+  const [error, setError] = useState<RcaErrorKind>(null);
   const [activeWo, setActiveWo] = useState<WorkOrderPayload | null>(null);
   const [generatingWo, setGeneratingWo] = useState(false);
 
@@ -82,23 +59,27 @@ export default function RCAPage() {
   };
 
   useEffect(() => {
-
     assetsApi.list().then((list) => {
       if (list.length > 0) {
         setFleetAssets(list);
+        setSelected(list[0].tag);
       }
     }).catch(() => {});
   }, []);
 
   const runRca = useCallback(async (equipment: string) => {
     setLoading(true);
-    setError(false);
+    setError(null);
     setRca(null);
     try {
       const result = await rcaApi.get(equipment);
       setRca(result);
-    } catch {
-      setError(true);
+    } catch (e) {
+      if (e instanceof ApiError) {
+        setError(e.offline ? "offline" : e.status === 404 ? "no_data" : "other");
+      } else {
+        setError("other");
+      }
     } finally {
       setLoading(false);
     }
@@ -108,18 +89,13 @@ export default function RCAPage() {
     runRca(selected);
   }, [selected, runRca]);
 
-  const equipmentList = fleetAssets.length > 0 ? fleetAssets.map(a => ({
+  const equipmentList = fleetAssets.map(a => ({
     id: a.tag,
     name: `${a.tag} (${a.name})`,
     location: a.location || "Plant Bay",
     criticality: a.criticality.toUpperCase(),
     status: a.status === "degraded" || a.status === "offline" ? "critical" : "healthy",
-  })) : [
-    { id: "Pump P-204", name: "Pump P-204", location: "Unit 4, Cooling", criticality: "CLASS A", status: "critical" },
-    { id: "Compressor K-101", name: "Compressor K-101", location: "Unit 2, Gas Plant", criticality: "CLASS B", status: "warning" },
-    { id: "Heat Exchanger E-301", name: "Heat Exchanger E-301", location: "Unit 1, Refining", criticality: "CLASS A", status: "healthy" },
-    { id: "Boiler B-12", name: "Boiler B-12", location: "Power Gen", criticality: "CLASS A", status: "healthy" },
-  ];
+  }));
 
   return (
     <div className="min-h-screen">
@@ -166,77 +142,40 @@ export default function RCAPage() {
         </Reveal>
 
         <div className="mt-6 grid gap-6 lg:grid-cols-2">
-          {/* Failure Timeline */}
+          {/* Cited Evidence — real chunks the RCA answer was grounded in.
+              No document history endpoint exists yet, so this shows exactly
+              what the backend actually retrieved rather than inventing a
+              fabricated failure timeline. */}
           <Reveal dir="right">
             <div className="glass-glow p-6">
               <div className="mb-5 flex items-center gap-2">
                 <Clock className="h-4 w-4 text-goldGlow" />
-                <h2 className="display text-lg font-semibold">Failure Timeline</h2>
-                {selected === "Pump P-204" && (
-                  <span className="ml-auto chip border-danger/30 bg-danger/10 text-danger">
-                    3 recurring failures
+                <h2 className="display text-lg font-semibold">Cited Evidence</h2>
+                {rca && rca.sources.length > 0 && (
+                  <span className="ml-auto chip border-teal/30 bg-teal/10 text-tealGlow">
+                    {rca.sources.length} document{rca.sources.length === 1 ? "" : "s"}
                   </span>
                 )}
               </div>
 
-              {selected === "Pump P-204" ? (
-                <div className="relative space-y-4 pl-6 before:absolute before:left-2 before:top-0 before:h-full before:w-px before:bg-border">
-                  {PUMP_FAILURES.map((ev, i) => (
+              {rca && rca.sources.length > 0 ? (
+                <div className="space-y-3">
+                  {rca.sources.map((s, i) => (
                     <motion.div
                       key={i}
                       initial={{ opacity: 0, x: -16 }}
                       whileInView={{ opacity: 1, x: 0 }}
                       viewport={{ once: true, margin: "-40px" }}
                       transition={{ delay: i * 0.12 }}
-                      className="relative"
+                      className="glass p-4"
                     >
-                      {/* Timeline dot */}
-                      <span className="absolute -left-[1.35rem] top-2 h-3 w-3 rounded-full border-2 border-danger bg-abyss" />
-                      <button
-                        onClick={() => setExpanded(expanded === i ? null : i)}
-                        className="w-full text-left"
-                      >
-                        <div className="glass flex items-start justify-between gap-3 p-4 hover:border-teal/30 transition-colors">
-                          <div>
-                            <p className="font-mono text-[11px] text-muted">{ev.date}</p>
-                            <p className="mt-0.5 text-sm font-medium">{ev.description}</p>
-                          </div>
-                          <div className="flex flex-col items-end gap-2">
-                            <span className={`chip text-[10px] ${TAG_COLORS[ev.tag]}`}>
-                              {ev.tag}
-                            </span>
-                            {expanded === i ? (
-                              <ChevronUp className="h-3.5 w-3.5 text-muted" />
-                            ) : (
-                              <ChevronDown className="h-3.5 w-3.5 text-muted" />
-                            )}
-                          </div>
-                        </div>
-                      </button>
-                      <AnimatePresence>
-                        {expanded === i && (
-                          <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: "auto", opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            className="overflow-hidden"
-                          >
-                            <div className="mt-1 rounded-xl border border-gold/20 bg-gold/5 px-4 py-3 text-xs text-muted">
-                              <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-gold/10 pb-3">
-                                <div><span className="text-muted/60">WO:</span> <span className="font-mono text-goldGlow">{ev.woId}</span></div>
-                                <div><span className="text-muted/60">Reporter:</span> <span className="text-text">{ev.reporter}</span></div>
-                                <div><span className="text-muted/60">Priority:</span> <span className={ev.priority === 'Critical' ? 'text-danger font-medium' : 'text-gold'}>{ev.priority}</span></div>
-                                <div><span className="text-muted/60">Cost:</span> <span className="text-tealGlow font-mono">{ev.cost}</span></div>
-                              </div>
-                              <span className="text-goldGlow">Procedure used:</span>{" "}
-                              {ev.procedure} — interval specified as{" "}
-                              <span className="text-danger font-medium">90 days</span>
-                              {" "}(OEM manual mandates{" "}
-                              <span className="text-tealGlow font-medium">60 days</span>)
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
+                      <div className="flex items-center gap-2 text-xs text-tealGlow">
+                        <FileText className="h-3.5 w-3.5" />
+                        <span className="font-mono">{s.doc_name} · p.{s.page}</span>
+                      </div>
+                      {s.snippet && (
+                        <p className="mt-2 text-xs leading-relaxed text-muted">{s.snippet}</p>
+                      )}
                     </motion.div>
                   ))}
                 </div>
@@ -258,9 +197,20 @@ export default function RCAPage() {
                 <h2 className="display text-lg font-semibold">Root Cause Analysis</h2>
               </div>
 
-              {error ? (
+              {error === "no_data" ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <Wrench className="mb-3 h-10 w-10 text-border" />
+                  <p className="text-sm text-muted">No maintenance records found for {selected}.</p>
+                  <p className="mt-1 text-xs text-muted">Ingest relevant documents to enable root cause analysis for this asset.</p>
+                </div>
+              ) : error === "offline" ? (
                 <ErrorState
-                  message="Couldn't run RCA. Backend may be offline."
+                  message="Couldn't reach the backend — it may be offline."
+                  onRetry={() => runRca(selected)}
+                />
+              ) : error === "other" ? (
+                <ErrorState
+                  message="RCA failed unexpectedly. Try again."
                   onRetry={() => runRca(selected)}
                 />
               ) : loading ? (
@@ -279,28 +229,13 @@ export default function RCAPage() {
                   <p className="text-sm leading-relaxed">{rca.answer}</p>
 
                   {rca.sources.length > 0 && (
-                    <div className="space-y-4">
-                      <div className="flex flex-wrap gap-2">
-                        {rca.sources.map((s, i) => (
-                          <span key={i} title={s.snippet} className="chip cursor-help">
-                            <FileText className="h-3 w-3" />
-                            {s.doc_name} · p.{s.page}
-                          </span>
-                        ))}
-                      </div>
-                      
-                      {selected === "Pump P-204" && (
-                        <div className="rounded-lg bg-surface/80 p-3 text-xs border border-white/5 shadow-inner">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-muted">
-                            <div><span className="text-muted/60">Procedure Authored:</span> MP-12.docx</div>
-                            <div>
-                              <span className="text-muted/60">Last Updated:</span> Oct 12, 2021 
-                              <span className="text-danger ml-1.5 font-medium bg-danger/10 px-1.5 py-0.5 rounded text-[10px]">OUTDATED</span>
-                            </div>
-                            <div className="sm:col-span-2"><span className="text-muted/60">Document Owner:</span> J. Doe (Reliability Engineering)</div>
-                          </div>
-                        </div>
-                      )}
+                    <div className="flex flex-wrap gap-2">
+                      {rca.sources.map((s, i) => (
+                        <span key={i} title={s.snippet} className="chip cursor-help">
+                          <FileText className="h-3 w-3" />
+                          {s.doc_name} · p.{s.page}
+                        </span>
+                      ))}
                     </div>
                   )}
 

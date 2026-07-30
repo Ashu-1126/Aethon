@@ -3,6 +3,7 @@
 // Falls back to lib/mock.ts when NEXT_PUBLIC_USE_MOCK=true.
 
 import { mock } from "./mock";
+import { getToken, clearSession } from "./session";
 import type {
   Document,
   QueryResponse,
@@ -52,7 +53,7 @@ export class ApiError extends Error {
 
 function authHeader(): Record<string, string> {
   if (typeof window === "undefined") return {};
-  const token = localStorage.getItem("aethon_token");
+  const token = getToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
@@ -74,8 +75,7 @@ async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!res.ok) {
     if (res.status === 401 || res.status === 403) {
       if (typeof window !== "undefined") {
-        localStorage.removeItem("aethon_token");
-        localStorage.removeItem("aethon_role");
+        clearSession();
         window.location.href = "/login";
         await new Promise(() => {});
       }

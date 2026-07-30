@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { getToken } from "@/lib/session";
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -16,15 +17,11 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Demo bypass: ?demo=1 skips the token check so judges can explore
-    // the full app without manually authenticating. Frontend-only.
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("demo") === "1") {
-      setAuthorized(true);
-      return;
-    }
-
-    const token = localStorage.getItem("aethon_token");
+    // Every visitor must have a live token — no demo bypass. Tokens live in
+    // sessionStorage by default (gone when the tab/browser closes, so login
+    // is required every new session) and only persist in localStorage when
+    // the user checked "Remember me" at login.
+    const token = getToken();
     if (!token) {
       router.replace("/login");
     } else {

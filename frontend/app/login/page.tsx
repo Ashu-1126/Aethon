@@ -1,48 +1,23 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Hexagon, Lock, Loader2 } from "lucide-react";
 import { auth, ApiError } from "@/lib/api";
+import { saveSession } from "@/lib/session";
 import { Reveal } from "@/components/motion/Reveal";
 
 export default function LoginPage() {
   const router = useRouter();
   const [username, setUsername] = useState("admin");
   const [password, setPassword] = useState("password123");
+  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const persistSession = (token: string, role: string) => {
-    localStorage.setItem("aethon_token", token);
-    localStorage.setItem("aethon_role", role);
-  };
-
   const enterDemoSession = () => {
-    persistSession("demo-token", "admin");
+    saveSession("demo-token", "admin", rememberMe);
     router.replace("/");
   };
-
-  // Demo mode: ?demo=1 auto-authenticates with the shared dev credentials
-  // so judges can reach the app without typing. Frontend-only convenience.
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("demo") === "1") {
-      (async () => {
-        setLoading(true);
-        try {
-          const res = await auth.login("admin", "password123");
-          persistSession(res.token, res.role);
-          router.replace("/");
-        } catch {
-          // If the backend is unreachable, still drop the user into the app
-          // (mock mode / demo) so the UI is explorable.
-          enterDemoSession();
-        } finally {
-          setLoading(false);
-        }
-      })();
-    }
-  }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,7 +26,7 @@ export default function LoginPage() {
 
     try {
       const res = await auth.login(username, password);
-      persistSession(res.token, res.role);
+      saveSession(res.token, res.role, rememberMe);
       router.replace("/");
     } catch (err) {
       if (err instanceof ApiError && err.offline) {
@@ -114,6 +89,18 @@ export default function LoginPage() {
                   <Lock className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
                 </div>
               </div>
+
+              <label htmlFor="remember-me" className="flex select-none items-center gap-2 text-xs text-muted">
+                <input
+                  id="remember-me"
+                  name="remember-me"
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="h-3.5 w-3.5 rounded border-border bg-base/50 accent-teal"
+                />
+                Remember me on this device
+              </label>
             </div>
 
             <button
