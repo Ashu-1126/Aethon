@@ -46,34 +46,51 @@ def _cache_put(key: str, data: dict) -> None:
 
 _COMPLIANCE_PROMPT = """\
 You are an industrial compliance specialist & regulatory auditor.
-Given the following context from plant documents, maintenance logs, and regulations:
-1. Evaluate compliance against standards: Factory Act, OISD-116, DGMS, PESO.
-2. Predict FUTURE compliance violations by analyzing maintenance schedules vs regulatory timelines.
 
-Return ONLY valid JSON matching this schema:
+Using ONLY the excerpts below (each tagged with its real source as
+[{{doc_name}} p.{{page}}]):
+1. Evaluate compliance against whichever standards are actually referenced
+   in the excerpts (e.g. Factory Act, OISD-116, DGMS, PESO — only if present).
+2. Predict FUTURE compliance violations by analyzing maintenance schedules vs
+   regulatory timelines, but only when the excerpts actually contain dates,
+   intervals, or schedules to reason from.
+
+STRICT GROUNDING RULES:
+- Every "standard", "clause", "asset_tag", "evidence_ref" etc. must come
+  from what's actually written in the excerpts below. Never invent a
+  standard, section number, asset tag, or filename that doesn't appear in
+  them.
+- If the excerpts don't support a finding for a section of the schema,
+  return an empty list for it rather than inventing a plausible-sounding one.
+
+Return ONLY valid JSON matching this schema (values below are illustrative
+field-shape only, not real findings to copy):
 {{
   "overall_score": 92,
   "standards": [
     {{
-      "standard": "OISD-116",
+      "standard": "<standard name found in the excerpts>",
       "score": 88,
       "gaps": [
-        {{"clause": "§7.2", "issue": "Continuous atmospheric monitoring not specified"}}
+        {{"clause": "<clause/section found in the excerpts>", "issue": "<gap actually described there>"}}
       ]
     }}
   ],
   "predicted_future_violations": [
     {{
-      "potential_violation": "Pressure vessel hydro-test interval lapse on V-301",
-      "asset_tag": "V-301",
+      "potential_violation": "<only if excerpts support this>",
+      "asset_tag": "<from excerpts, if any>",
       "days_remaining": 14,
       "risk_level": "critical",
-      "recommended_action": "Schedule vessel shutdown and non-destructive hydrostatic testing before July 30th",
-      "supporting_regulations": "PESO Pressure Vessel Rules 2016 §18(2)",
-      "evidence_ref": "Doc-V301.pdf p.3"
+      "recommended_action": "<action citing the real clause/standard>",
+      "supporting_regulations": "<real standard name from excerpts>",
+      "evidence_ref": "<real [doc p.page] this came from>"
     }}
   ]
 }}
+
+Excerpts:
+{context}
 
 JSON:"""
 
@@ -165,31 +182,46 @@ def _save_conflicts_to_disk(data: list[dict]) -> None:
 
 _CONFLICT_PROMPT = """\
 You are an enterprise regulatory compliance & document conflict detection engine.
-Compare text excerpts across:
-- Internal SOPs
-- ISO Standards (ISO 45001, ISO 9001, ISO 55001)
-- OSHA Regulations (29 CFR 1910)
-- Factory Act & Local Statutory Rules
-- Company Operational Policies
 
-Detect contradictions (numerical intervals, safety tolerances, PPE requirements, inspection frequencies)
-and recommend a UNIFIED COMPLIANCE DIRECTIVE that strictly satisfies the most stringent regulatory standard.
+You will be given excerpts below, each tagged with its real source as
+[DOC:<exact document name> PAGE:<page>]. Compare ONLY these excerpts against
+each other and find genuine contradictions (numerical intervals, safety
+tolerances, PPE requirements, inspection frequencies, etc).
 
-Return ONLY valid JSON matching this exact schema:
+STRICT GROUNDING RULES — violating these makes your output useless:
+- "doc_a" and "doc_b" MUST be copied verbatim from the [DOC:...] tags in the
+  excerpts below. Never invent, guess, or reuse a document name that is not
+  literally present in the excerpts (e.g. do not invent "SOP-44.docx",
+  "OSHA 29 CFR 1910.146", "ISO 45001" or similar unless that exact string
+  appears in a [DOC:...] tag below).
+- "value_a" and "value_b" must be values actually stated in the excerpts,
+  not typical/plausible-sounding numbers.
+- If the excerpts contain no genuine, verifiable contradiction, return
+  {{"conflicts": []}}. An empty result is correct and expected when the
+  excerpts don't actually conflict — do not fabricate one to fill the schema.
+
+Recommend a UNIFIED COMPLIANCE DIRECTIVE that satisfies the more stringent
+of the two real values you found.
+
+Return ONLY valid JSON matching this schema (field names only — the values
+below are illustrative, not real documents to reference):
 {{
   "conflicts": [
     {{
-      "doc_a": "SOP-44.docx (Internal SOP)",
-      "doc_b": "OSHA 29 CFR 1910.146 (OSHA)",
-      "field": "Confined Space Atmospheric Testing Frequency",
-      "value_a": "Test initial atmosphere prior to entry",
-      "value_b": "Continuous atmospheric monitoring required for entire entry duration",
-      "regulatory_bodies": ["Internal SOP", "OSHA"],
-      "severity": "critical",
-      "recommended_unified_compliance": "Mandate continuous atmospheric monitoring with telemetry data logging for 100% of confined space entries, updating SOP-44 §4.2 to comply with OSHA 1910.146."
+      "doc_a": "<exact doc name from a [DOC:...] tag below>",
+      "doc_b": "<exact doc name from a different [DOC:...] tag below>",
+      "field": "<what is contradicted, e.g. Inspection Frequency>",
+      "value_a": "<value as stated in doc_a's excerpt>",
+      "value_b": "<value as stated in doc_b's excerpt>",
+      "regulatory_bodies": ["<inferred from doc name, if applicable>"],
+      "severity": "critical | high | medium",
+      "recommended_unified_compliance": "<action citing both real doc names>"
     }}
   ]
 }}
+
+Excerpts:
+{context}
 
 JSON:"""
 
