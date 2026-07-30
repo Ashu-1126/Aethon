@@ -54,11 +54,15 @@ def seed_database(limit: int | None = None):
     quickly instead of re-embedding everything, which is slow and expensive
     (each doc is an LLM embedding call per chunk).
     """
-    # Try multiple paths to find corpus directory
+    # Path(__file__)-relative resolution first: it's independent of the
+    # process's working directory, which varies between local runs (repo
+    # root) and Render's startCommand (cd backend && uvicorn ...), and empty
+    # results here fail silently in the background thread this is normally
+    # invoked from — the relative fallbacks are a last resort, not a plan.
     possible_paths = [
+        Path(__file__).resolve().parent.parent / "corpus",
         Path("../corpus"),
         Path("corpus"),
-        Path(__file__).resolve().parent.parent / "corpus",
     ]
 
     corpus_dir = None

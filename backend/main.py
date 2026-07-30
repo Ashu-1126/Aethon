@@ -142,9 +142,19 @@ def _self_heal_demo_data() -> None:
     except Exception as e:
         print(f"[Self-heal] Asset seeding skipped: {e}")
 
+    def _run_corpus_seed():
+        # threading.Thread swallows exceptions raised inside the target
+        # silently (no traceback reaches the main log stream), so an error
+        # here would otherwise look identical to "nothing to seed" — wrap it
+        # so failures are actually visible in Render's logs.
+        try:
+            seed_database(limit=3)
+        except Exception as e:
+            print(f"[Self-heal] Corpus seeding failed: {e}", flush=True)
+
     try:
         if vec_count() == 0:
-            threading.Thread(target=seed_database, kwargs={"limit": 3}, daemon=True).start()
+            threading.Thread(target=_run_corpus_seed, daemon=True).start()
     except Exception as e:
         print(f"[Self-heal] Corpus seeding skipped: {e}")
 
