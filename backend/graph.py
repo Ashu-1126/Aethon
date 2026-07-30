@@ -407,24 +407,41 @@ Valid relation types: governed_by, operated_via, must_comply, involved_in, docum
 
 
 
-def _extract_entities_from_chunk(text: str, doc_name: str) -> dict:
-    """Call LLM to extract entities and relations from a text chunk."""
+def _extract_entities_from_chunk(text: str, doc_name: str, attempts: int = 3) -> dict:
+    """Call LLM to extract entities and relations from a text chunk.
+
+    Retries with backoff on transient failures (rate limits are the common
+    case when a document's chunks are all extracted in a short burst) and
+    logs the final failure instead of swallowing it — previously this
+    returned an empty result silently on any error, which meant a burst of
+    rate-limit errors during ingestion left the knowledge graph permanently
+    empty with zero visibility into why.
+    """
+    import time as _time
+
     prompt = _EXTRACT_PROMPT.format(doc_name=doc_name, text=text[:2000])
-    try:
-        resp = client.chat.completions.create(
-            model=LLM_MODEL,
-            messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"},
-            temperature=0.0,
-            max_tokens=512,
-        )
-        raw = resp.choices[0].message.content.strip()
-        # Extract JSON from the response (model may wrap in markdown)
-        m = re.search(r"\{.*\}", raw, re.DOTALL)
-        if m:
-            return json.loads(m.group())
-    except Exception:
-        pass
+    last_err: Exception | None = None
+    for attempt in range(attempts):
+        try:
+            resp = client.chat.completions.create(
+                model=LLM_MODEL,
+                messages=[{"role": "user", "content": prompt}],
+                response_format={"type": "json_object"},
+                temperature=0.0,
+                max_tokens=512,
+            )
+            raw = resp.choices[0].message.content.strip()
+            # Extract JSON from the response (model may wrap in markdown)
+            m = re.search(r"\{.*\}", raw, re.DOTALL)
+            if m:
+                return json.loads(m.group())
+            return {"entities": [], "relations": []}
+        except Exception as e:
+            last_err = e
+            if attempt < attempts - 1:
+                _time.sleep(1.5 * (2 ** attempt))
+
+    print(f"[Graph] Entity extraction failed for '{doc_name}' after {attempts} attempts: {last_err}", flush=True)
     return {"entities": [], "relations": []}
 
 
@@ -483,8 +500,10 @@ def add_chunks_to_graph(chunks: list[dict]) -> int:
     sampled = chunks[::6][:15]
     from concurrent.futures import ThreadPoolExecutor
     
-    # Run network LLM extraction calls in parallel threads (5 concurrent workers to avoid rate limits)
-    with ThreadPoolExecutor(max_workers=5) as executor:
+    # Run network LLM extraction calls in parallel threads. Lower concurrency
+    # than it looks like it should need — Mistral's rate limit is tight
+    # enough that 5 workers reliably triggered 429s across a multi-doc batch.
+    with ThreadPoolExecutor(max_workers=3) as executor:
         futures = [
             executor.submit(_extract_entities_from_chunk, chunk["text"], chunk["doc_name"])
             for chunk in sampled
