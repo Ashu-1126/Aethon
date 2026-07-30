@@ -383,6 +383,9 @@ export interface PdmPrediction {
   contributing_factors: ContributingFactor[];
   confidence: number;
   timestamp: string;
+  /** "estimated_no_supporting_documents" means no retrieved chunks grounded this
+   *  prediction — the model generated a generic estimate, not a data-backed one. */
+  data_confidence?: "grounded" | "estimated_no_supporting_documents";
 }
 
 export interface RiskHeatmapFactors {

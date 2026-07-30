@@ -162,6 +162,10 @@ def calculate_asset_pdm(
 
     pdm["asset_tag"] = tag
     pdm["timestamp"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    # Without retrieved chunks the model has no real signal for this asset —
+    # every unindexed asset gets a near-identical generic guess, which reads
+    # as precise telemetry unless callers know to distrust it.
+    pdm["data_confidence"] = "grounded" if chunks else "estimated_no_supporting_documents"
 
     # Save to SQLite
     now = pdm["timestamp"]

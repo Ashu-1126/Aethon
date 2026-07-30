@@ -136,6 +136,16 @@ export default function PredictivePage() {
           <Skeleton className="mt-8 h-[500px] w-full rounded-2xl" />
         ) : (
           <div className="mt-6 space-y-6 pb-16">
+            {prediction.data_confidence === "estimated_no_supporting_documents" && (
+              <div className="flex items-start gap-3 rounded-xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-200">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>
+                  <strong>No supporting documents found for this asset.</strong> The figures below are a generic
+                  AI estimate, not grounded in any ingested maintenance logs or manuals — treat them as
+                  illustrative only until relevant documents are indexed for {selectedTag}.
+                </span>
+              </div>
+            )}
             {/* Top KPI Metrics Matrix */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
               {/* Health Score */}
