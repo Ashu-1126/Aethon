@@ -291,6 +291,7 @@ def answer(query: str, k: int = RETRIEVAL_K) -> dict:
         {"role": "user",   "content": _EXPLAINABLE_USER_PROMPT.format(context=context, graph_context=graph_context, query=query)},
     ]
 
+    raw: str | None = None
     try:
         resp = client.chat.completions.create(
             model=LLM_MODEL,
@@ -303,9 +304,23 @@ def answer(query: str, k: int = RETRIEVAL_K) -> dict:
         raw = re.sub(r"^```(?:json)?\s*", "", raw, flags=re.MULTILINE)
         raw = re.sub(r"\s*```$", "", raw, flags=re.MULTILINE)
         parsed = json.loads(raw)
-    except Exception:
+    except Exception as e:
+        # Previously this swallowed the failure with no trace, so a
+        # persistent truncation/format issue was indistinguishable from a
+        # one-off fluke. Log it, and salvage the "answer" text via regex if
+        # the JSON is malformed but still contains a recognizable answer
+        # field — better than discarding a real (if imperfectly formatted)
+        # response for the generic fallback.
+        print(f"[Copilot] Structured synthesis failed: {e}. Raw preview: {(raw or '<no response>')[:300]}", flush=True)
+
+        salvaged_answer = None
+        if raw:
+            m = re.search(r'"answer"\s*:\s*"((?:[^"\\]|\\.)*)"', raw)
+            if m:
+                salvaged_answer = m.group(1).replace('\\"', '"').replace("\\n", "\n")
+
         parsed = {
-            "answer": "Unable to generate structured explainability report.",
+            "answer": salvaged_answer or "Unable to generate structured explainability report.",
             "confidence": _confidence(hits),
             "reasoning_chain": ["LLM synthesis call encountered an invalid JSON format."],
             "supporting_documents": [],
