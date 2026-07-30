@@ -63,6 +63,13 @@ Document Context:
 
 {graph_context}
 
+GROUNDING RULE: any "citation" field must be copied verbatim from a
+"[DOC:<name> PAGE:<n>]" tag actually present in the Document Context above
+(the filenames in the example schema below are illustrative only — never
+reuse or invent a filename that isn't in the Document Context). If a factor
+isn't backed by a real citation, omit the citation field rather than
+inventing one.
+
 Provide a comprehensive health assessment. Return ONLY valid JSON:
 {{
   "health_score": 78,
@@ -157,6 +164,13 @@ Context:
 
 {graph_context}
 
+GROUNDING RULE: any "citation" field must be copied verbatim from a
+"[DOC:<name> PAGE:<n>]" tag actually present in the Context above (the
+filenames in the example schema below, like "Maintenance-Log-Q3.pdf" and
+"SOP-PM-04.pdf", are illustrative only — never reuse or invent a filename
+that isn't in the Context). If a factor isn't backed by a real citation,
+omit the citation field rather than inventing one.
+
 Predict the maintenance forecast. Return ONLY valid JSON:
 {{
   "risk_score": 65,
@@ -250,7 +264,14 @@ Review the following document context for compliance gaps specific to this asset
 Context:
 {context}
 
-Standards: Factory Act, OISD-116, DGMS, PESO
+Standards: Factory Act, OISD-116, DGMS, PESO — only cite ones actually
+referenced in the Context above.
+
+GROUNDING RULE: any "citation" field must be copied verbatim from a
+"[DOC:<name> PAGE:<n>]" tag actually present in the Context above (the
+filename in the example schema below is illustrative only — never reuse or
+invent a filename that isn't in the Context). If a gap isn't backed by a
+real citation, omit the citation field rather than inventing one.
 
 Find compliance gaps for THIS SPECIFIC ASSET only. Return ONLY valid JSON:
 {{

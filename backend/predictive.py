@@ -63,6 +63,12 @@ Retrieved Document & Maintenance Context:
 Knowledge Graph Context:
 {graph_context}
 
+GROUNDING RULE: any "citation" field must be copied verbatim from a
+"[DOC:<name> PAGE:<n>]" tag actually present in the Retrieved Document
+context above (e.g. "Log-Q3.pdf p.4" below is illustrative only — never
+reuse it or invent a filename that isn't in the context). If a factor isn't
+backed by a real citation, omit the citation field rather than inventing one.
+
 Calculate exact predictive maintenance analytics. For EVERY recommendation, estimate:
 1. Downtime (hours)
 2. Production loss ($ USD)
